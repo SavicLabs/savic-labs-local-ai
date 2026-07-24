@@ -1,0 +1,188 @@
+{
+  "name": "savic-labs-copilot",
+  "displayName": "SavicLabs Local AI for Copilot Chat",
+  "description": "Use your local llama.cpp models in GitHub Copilot Chat. Zero config — auto-discovers models, supports thinking/reasoning, tool calling, and vision proxy.",
+  "icon": "resources/icon.png",
+  "version": "0.1.0",
+  "publisher": "SavicLabs",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SavicLabs/savic-labs-copilot"
+  },
+  "engines": {
+    "vscode": "^1.116.0",
+    "node": ">=24"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "llama.cpp",
+    "llama",
+    "qwen",
+    "local ai",
+    "copilot",
+    "github copilot",
+    "copilot chat",
+    "language model",
+    "thinking",
+    "reasoning",
+    "ai",
+    "chat",
+    "offline",
+    "self-hosted"
+  ],
+  "activationEvents": [
+    "onUri",
+    "onStartupFinished"
+  ],
+  "enabledApiProposals": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languageModelChatProviders": [
+      {
+        "vendor": "SavicLabs",
+        "displayName": "SavicLabs"
+      }
+    ],
+    "commands": [
+      {
+        "command": "savicLabs.configureEndpoint",
+        "title": "%savicLabs.command.configureEndpoint%"
+      },
+      {
+        "command": "savicLabs.refreshModels",
+        "title": "%savicLabs.command.refreshModels%"
+      },
+      {
+        "command": "savicLabs.setVisionModel",
+        "title": "%savicLabs.command.setVisionModel%"
+      },
+      {
+        "command": "savicLabs.showLogs",
+        "title": "%savicLabs.command.showLogs%"
+      },
+      {
+        "command": "savicLabs.openRequestDumpsFolder",
+        "title": "%savicLabs.command.openRequestDumpsFolder%"
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "savicLabsGettingStarted",
+        "title": "%savicLabs.walkthrough.title%",
+        "description": "%savicLabs.walkthrough.description%",
+        "steps": [
+          {
+            "id": "setEndpoint",
+            "title": "%savicLabs.walkthrough.setEndpoint.title%",
+            "description": "%savicLabs.walkthrough.setEndpoint.description%",
+            "media": {
+              "markdown": "resources/walkthrough/set-endpoint.md"
+            },
+            "completionEvents": [
+              "onCommand:savicLabs.configureEndpoint"
+            ]
+          },
+          {
+            "id": "showModels",
+            "title": "%savicLabs.walkthrough.showModels.title%",
+            "description": "%savicLabs.walkthrough.showModels.description%",
+            "media": {
+              "markdown": "resources/walkthrough/show-models.md"
+            }
+          },
+          {
+            "id": "advancedSettings",
+            "title": "%savicLabs.walkthrough.advancedSettings.title%",
+            "description": "%savicLabs.walkthrough.advancedSettings.description%",
+            "media": {
+              "markdown": "resources/walkthrough/advanced-settings.md"
+            }
+          }
+        ]
+      }
+    ],
+    "configuration": {
+      "title": "%savicLabs.config.title%",
+      "properties": {
+        "savicLabs.baseUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:18080/v1",
+          "description": "%savicLabs.config.baseUrl.description%"
+        },
+        "savicLabs.maxTokens": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "description": "%savicLabs.config.maxTokens.description%"
+        },
+        "savicLabs.experimental.stabilizeToolList": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%savicLabs.config.experimental.stabilizeToolList.description%",
+          "tags": [
+            "experimental"
+          ]
+        },
+        "savicLabs.modelIdOverrides": {
+          "type": "object",
+          "default": {},
+          "description": "%savicLabs.config.modelIdOverrides.description%",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "savicLabs.visionModel": {
+          "type": "string",
+          "default": "",
+          "tags": [
+            "advanced"
+          ],
+          "markdownDescription": "%savicLabs.config.visionModel.description%"
+        },
+        "savicLabs.visionPrompt": {
+          "type": "string",
+          "editPresentation": "multilineText",
+          "default": "Describe all image attachments in this message.\n\nIf there is one image, describe it directly.\nIf there are multiple images:\n1. Describe each image separately, preserving their order.\n2. Then provide a combined description explaining the overall context and relationships across the images.\n\nReturn one concise factual description suitable for inserting into a text-only chat prompt. Include visible text, objects, UI elements, people, and relevant context. Do not invent details.",
+          "markdownDescription": "%savicLabs.config.visionPrompt.description%"
+        },
+        "savicLabs.debugMode": {
+          "type": "string",
+          "default": "minimal",
+          "enum": [
+            "minimal",
+            "metadata",
+            "verbose"
+          ],
+          "enumItemLabels": [
+            "%savicLabs.config.debugMode.minimal.label%",
+            "%savicLabs.config.debugMode.metadata.label%",
+            "%savicLabs.config.debugMode.verbose.label%"
+          ],
+          "markdownEnumDescriptions": [
+            "%savicLabs.config.debugMode.minimal.description%",
+            "%savicLabs.config.debugMode.metadata.description%",
+            "%savicLabs.config.debugMode.verbose.description%"
+          ],
+          "markdownDescription": "%savicLabs.config.debugMode.description%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('out', { recursive: true, force: true, maxRetries: process.platform === 'win32' ? 10 : 0 })\"",
+    "vscode:prepublish": "npm run compile",
+    "compile": "npm run clean && tsc -p ./",
+    "watch": "npm run clean && tsc -watch -p ./",
+    "lint": "tsc --noEmit -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/vscode": "^1.125.0",
+    "typescript": "^7.0.2"
+  }
+}
