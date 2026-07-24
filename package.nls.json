@@ -8,6 +8,7 @@
   "savicLabs.config.title": "SavicLabs",
   "savicLabs.config.baseUrl.description": "Base URL of your llama.cpp or OpenAI-compatible API endpoint.",
   "savicLabs.config.maxTokens.description": "Maximum output tokens per response. Set to 0 for unlimited (API default).",
+  "savicLabs.config.requestTimeoutMs.description": "HTTP request timeout in milliseconds. Increase for large models that take time to load (default: 120000 = 2 minutes).",
   "savicLabs.config.modelIdOverrides.description": "Map VS Code model IDs to different API model IDs. Useful for proxies or custom model names.",
   "savicLabs.config.experimental.stabilizeToolList.description": "**Experimental**: Pre-activate tools with a no-op call to improve context-cache hit rates.",
   "savicLabs.config.visionModel.description": "VS Code language model ID to use for describing images (vision proxy). Leave empty for auto-detection. Example: `copilot/gpt-4o`.",

@@ -68,3 +68,9 @@ export function getVisionPrompt(): string {
   const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
   return config.get<string>('visionPrompt', '') || '';
 }
+
+/** Get the request timeout in milliseconds. */
+export function getRequestTimeoutMs(): number {
+  const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
+  return config.get<number>('requestTimeoutMs', 120_000);
+}

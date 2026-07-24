@@ -7,6 +7,10 @@ Use your local llama.cpp models directly in GitHub Copilot Chat. **Zero config**
 ## Features
 
 - **Zero-config model discovery** — Detects all models from your llama.cpp or OpenAI-compatible API endpoint via `/v1/models`
+- **Context Window Protection** — Prevents overflow crashes by estimating tokens before sending and intelligently truncating when needed
+- **Auto-retry & Timeout** — Retries on transient failures (503, network errors) with exponential backoff; configurable timeout
+- **Stream Stall Detection** — Detects stalled streams (30s no data) and recovers
+- **Model Load Progress** — Shows "Loading model..." with elapsed time while waiting for large models to load
 - **Thinking/Reasoning** — Full support for Qwen's chain-of-thought with collapsible thinking blocks
 - **Tool Calling** — Agent-mode tool support (file operations, terminal, search, etc.)
 - **Vision Proxy** — Images automatically described by an available Copilot vision model (GPT-4o, Claude, etc.)
@@ -36,6 +40,7 @@ To change it:
 |---|---|---|
 | `savicLabs.baseUrl` | `http://127.0.0.1:18080/v1` | API endpoint URL |
 | `savicLabs.maxTokens` | `0` (unlimited) | Max output tokens per response |
+| `savicLabs.requestTimeoutMs` | `120000` (2 min) | HTTP request timeout in ms |
 | `savicLabs.modelIdOverrides` | `{}` | Map VS Code model IDs to API model IDs |
 | `savicLabs.debugMode` | `minimal` | Logging verbosity: `minimal`, `metadata`, `verbose` |
 | `savicLabs.visionModel` | `""` (auto-detect) | Model to use for image description |

@@ -17,6 +17,8 @@ export interface StreamCallbacks {
   onUsage(usage: Usage): void;
   onError(error: Error): void;
   onDone(): void;
+  /** Model loading progress (0-100, only if model needs loading). */
+  onLoadProgress?: (percent: number) => void;
 }
 
 export interface ToolCall {
@@ -49,22 +51,84 @@ export interface ChatCompletionRequest {
 
 export class SavicLabsClient {
   readonly baseUrl: string;
+  readonly timeoutMs: number;
+  readonly maxRetries: number;
 
-  constructor(baseUrl: string) {
+  constructor(baseUrl: string, timeoutMs: number = 120_000, maxRetries: number = 2) {
     // Strip trailing slash for clean URL joining
     this.baseUrl = baseUrl.replace(/\/+$/, '');
+    this.timeoutMs = timeoutMs;
+    this.maxRetries = maxRetries;
   }
 
   /**
    * Stream a chat completion from the API endpoint.
-   * Parses SSE chunks and dispatches callbacks for content, thinking, and tool calls.
+   * Includes timeout, retry on transient errors, and model load progress.
    */
   async streamChatCompletion(
     request: ChatCompletionRequest,
     callbacks: StreamCallbacks,
     cancellationToken?: { isCancellationRequested: boolean; onCancellationRequested: (cb: () => void) => { dispose(): void } }
   ): Promise<void> {
+    let lastError: Error | undefined;
+    let stallTimer: ReturnType<typeof setTimeout> | undefined;
+
+    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      if (cancellationToken?.isCancellationRequested) {
+        return;
+      }
+
+      try {
+        await this.streamChatCompletionOnce(request, callbacks, cancellationToken, (timer) => { stallTimer = timer; });
+        return; // Success
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // Don't retry on client errors (4xx) or cancellation
+        if (isAbortError(error) && cancellationToken?.isCancellationRequested) {
+          return;
+        }
+
+        if (isHttpStatus(error, 400, 499)) {
+          break; // Client error, don't retry
+        }
+
+        if (!isRetryable(error)) {
+          break; // Non-retryable error
+        }
+
+        if (attempt < this.maxRetries) {
+          const delay = Math.min(1000 * Math.pow(2, attempt), 8000);
+          logger.info(
+            `Retry ${attempt + 1}/${this.maxRetries} after ${delay}ms: ${lastError.message.slice(0, 100)}`
+          );
+          await sleep(delay);
+        }
+      } finally {
+        if (stallTimer) {
+          clearTimeout(stallTimer);
+        }
+      }
+    }
+
+    // All retries exhausted
+    callbacks.onError(lastError || new Error('Unknown error'));
+  }
+  /**
+   * Single attempt at streaming (no retry).
+   */
+  private async streamChatCompletionOnce(
+    request: ChatCompletionRequest,
+    callbacks: StreamCallbacks,
+    cancellationToken?: { isCancellationRequested: boolean; onCancellationRequested: (cb: () => void) => { dispose(): void } },
+    setStallTimer?: (timer: ReturnType<typeof setTimeout>) => void
+  ): Promise<void> {
     const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+      logger.warn(`Request timed out after ${this.timeoutMs}ms for model ${request.model}`);
+    }, this.timeoutMs);
+
     const cancelListener = cancellationToken?.onCancellationRequested(() => {
       controller.abort();
     });
@@ -89,6 +153,9 @@ export class SavicLabsClient {
         signal: controller.signal,
       });
 
+      // Clear the timeout — we got a response
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
         throw await createHttpError(response, { baseUrl: this.baseUrl, request });
       }
@@ -101,6 +168,7 @@ export class SavicLabsClient {
       const decoder = new TextDecoder();
       let buffer = '';
       let latestUsage: Usage | undefined;
+      let stallTimer: ReturnType<typeof setTimeout> | undefined;
 
       // Accumulate tool call deltas by index
       const pendingToolCalls = new Map<number, ToolCall>();
@@ -110,6 +178,14 @@ export class SavicLabsClient {
           controller.abort();
           return;
         }
+
+        // Start/reset stall detection timer (30s with no data = stalled)
+        if (stallTimer) clearTimeout(stallTimer);
+        stallTimer = setTimeout(() => {
+          logger.warn(`Stream stalled (30s no data) for model ${request.model}`);
+          controller.abort();
+        }, 30_000);
+        if (setStallTimer) setStallTimer(stallTimer);
 
         const { done, value } = await reader.read();
         if (done) {
@@ -214,12 +290,13 @@ export class SavicLabsClient {
       reportFinalUsage(callbacks, latestUsage);
       callbacks.onDone();
     } catch (error) {
+      clearTimeout(timeoutId);
       if (isAbortError(error) && cancellationToken?.isCancellationRequested) {
         return;
       }
-      const normalizedError = normalizeRequestError(error, { baseUrl: this.baseUrl, request });
-      callbacks.onError(normalizedError);
+      throw normalizeRequestError(error, { baseUrl: this.baseUrl, request });
     } finally {
+      clearTimeout(timeoutId);
       cancelListener?.dispose();
     }
   }
@@ -229,4 +306,30 @@ function reportFinalUsage(callbacks: StreamCallbacks, usage: Usage | undefined):
   if (usage) {
     callbacks.onUsage(usage);
   }
+}
+
+/** Check if an error is an HTTP error with a status in the given range. */
+function isHttpStatus(error: unknown, min: number, max: number): boolean {
+  const err = error as { statusCode?: number };
+  return typeof err.statusCode === 'number' && err.statusCode >= min && err.statusCode <= max;
+}
+
+/** Check if an error is retryable (server errors, network errors). */
+function isRetryable(error: unknown): boolean {
+  if (isHttpStatus(error, 500, 599)) return true;
+  if (isHttpStatus(error, 429, 429)) return true; // Rate limit
+  const msg = error instanceof Error ? error.message.toLowerCase() : '';
+  return (
+    msg.includes('econnrefused') ||
+    msg.includes('enotfound') ||
+    msg.includes('econnreset') ||
+    msg.includes('network') ||
+    msg.includes('timeout') ||
+    msg.includes('fetch failed')
+  );
+}
+
+/** Promise-based sleep. */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

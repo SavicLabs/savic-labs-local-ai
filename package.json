@@ -120,6 +120,12 @@
           "minimum": 0,
           "description": "%savicLabs.config.maxTokens.description%"
         },
+        "savicLabs.requestTimeoutMs": {
+          "type": "number",
+          "default": 120000,
+          "minimum": 10000,
+          "description": "%savicLabs.config.requestTimeoutMs.description%"
+        },
         "savicLabs.experimental.stabilizeToolList": {
           "type": "boolean",
           "default": false,

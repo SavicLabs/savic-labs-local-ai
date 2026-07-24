@@ -4,13 +4,14 @@
  */
 import * as vscode from 'vscode';
 import { SavicLabsClient, createUserFacingError } from '../client';
-import { getBaseUrl, getDebugLoggingEnabled } from '../config';
+import { getBaseUrl, getDebugLoggingEnabled, getRequestTimeoutMs } from '../config';
 import { logger } from '../logger';
 import { t } from '../i18n';
 import { fetchModels, toChatInfo } from './models';
-import { prepareChatRequest } from './request';
+import { prepareChatRequest, waitForModelLoaded } from './request';
 import { streamChatCompletion } from './stream';
 import { estimateTokenCount } from './tokens';
+import { checkContextWindow } from './context';
 import { dumpProviderInput } from './debug/dump';
 import { classifyProviderRequest } from './routing/classifier';
 import { VisionService } from './vision/service';
@@ -32,7 +33,7 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
   onDidChangeLanguageModelChatInformation = this.changeEmitter.event;
 
   constructor(context: vscode.ExtensionContext) {
-    this.client = new SavicLabsClient(getBaseUrl());
+    this.client = new SavicLabsClient(getBaseUrl(), getRequestTimeoutMs());
     this.visionService = new VisionService(context);
     this.globalStorageUri = context.globalStorageUri;
 
@@ -41,9 +42,10 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (
           e.affectsConfiguration('savicLabs.baseUrl') ||
-          e.affectsConfiguration('savicLabs.modelIdOverrides')
+          e.affectsConfiguration('savicLabs.modelIdOverrides') ||
+          e.affectsConfiguration('savicLabs.requestTimeoutMs')
         ) {
-          this.client = new SavicLabsClient(getBaseUrl());
+          this.client = new SavicLabsClient(getBaseUrl(), getRequestTimeoutMs());
           this.invalidateCache();
           this.refreshModelPicker();
         }
@@ -76,7 +78,7 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
     if (newUrl) {
       const config = vscode.workspace.getConfiguration('savicLabs');
       await config.update('baseUrl', newUrl.trim(), vscode.ConfigurationTarget.Global);
-      this.client = new SavicLabsClient(newUrl.trim());
+      this.client = new SavicLabsClient(newUrl.trim(), getRequestTimeoutMs());
       this.invalidateCache();
       this.refreshModelPicker();
       void vscode.window.showInformationMessage(t('command.configureEndpoint.saved'));
@@ -203,6 +205,20 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
       );
     }
 
+    // Context window check — prevent overflow crashes before sending
+    const contextCheck = checkContextWindow(
+      mutableMessages,
+      modelInfo.maxInputTokens,
+      this.charsPerToken
+    );
+
+    if (contextCheck.notice) {
+      // Report context notice as first response part
+      extendedProgress.report(new vscode.LanguageModelTextPart(`> ${contextCheck.notice}\n\n`));
+    }
+
+    const contextSafeMessages = contextCheck.messages;
+
     // Classify request for logging
     const requestKind = classifyProviderRequest({
       messages: messages as unknown as { role: number; content: readonly { value?: string }[] }[],
@@ -224,9 +240,17 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
     });
 
     try {
+      // Health check: wait for model to be loaded before sending
+      await waitForModelLoaded(
+        getBaseUrl(),
+        modelInfo.id,
+        extendedProgress,
+        token
+      );
+
       const prepared = await prepareChatRequest({
         modelInfo,
-        messages: mutableMessages,
+        messages: contextSafeMessages,
         options: requestOptions,
         token,
         getVisionDescriber: () => this.visionService.get(),
