@@ -165,17 +165,29 @@ function parseModelEntry(entry: DiscoveredModelEntry, endpoint: string): Discove
   const hasThinking =
     THINKING_SPEC_TYPES.has(specType) || isThinkingModelId(id);
 
-  // Build source label
+  // Build source label — meaningful name, not just port number
   const ownedBy = entry.owned_by;
   let sourceLabel: string;
-  if (ownedBy && ownedBy !== 'llamacpp') {
+  if (ownedBy === 'llamacpp') {
+    sourceLabel = 'llama.cpp';
+  } else if (ownedBy && ownedBy !== 'library') {
     sourceLabel = ownedBy;
   } else {
+    // Detect by endpoint port / hostname
     try {
-      const hostname = new URL(endpoint).hostname;
-      sourceLabel = hostname === '127.0.0.1' || hostname === 'localhost'
-        ? `port ${new URL(endpoint).port || '80'}`
-        : hostname;
+      const u = new URL(endpoint);
+      const port = u.port;
+      if (port === '11434' || u.hostname.includes('ollama')) {
+        sourceLabel = 'Ollama';
+      } else if (port === '8000' || u.hostname.includes('vllm')) {
+        sourceLabel = 'vLLM';
+      } else if (port === '5000' || u.hostname.includes('oobabooga') || u.hostname.includes('text-generation')) {
+        sourceLabel = 'TGWUI';
+      } else if (port === '1234' || u.hostname.includes('lmstudio')) {
+        sourceLabel = 'LM Studio';
+      } else {
+        sourceLabel = `:${port || '80'}`;
+      }
     } catch {
       sourceLabel = endpoint.replace(/https?:\/\//, '').split('/')[0];
     }
