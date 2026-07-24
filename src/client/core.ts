@@ -169,6 +169,7 @@ export class SavicLabsClient {
       let buffer = '';
       let latestUsage: Usage | undefined;
       let stallTimer: ReturnType<typeof setTimeout> | undefined;
+      let firstTokenReceived = false;
 
       // Accumulate tool call deltas by index
       const pendingToolCalls = new Map<number, ToolCall>();
@@ -179,12 +180,13 @@ export class SavicLabsClient {
           return;
         }
 
-        // Start/reset stall detection timer (60s with no data = stalled)
+        // Stall detection: 120s for first token (prompt eval), 60s after
         if (stallTimer) clearTimeout(stallTimer);
+        const stallMs = firstTokenReceived ? 60_000 : 120_000;
         stallTimer = setTimeout(() => {
-          logger.warn(`Stream stalled (60s no data) for model ${request.model}`);
+          logger.warn(`Stream stalled (${stallMs / 1000}s no data) for model ${request.model}`);
           controller.abort();
-        }, 60_000);
+        }, stallMs);
         if (setStallTimer) setStallTimer(stallTimer);
 
         const { done, value } = await reader.read();
@@ -242,11 +244,13 @@ export class SavicLabsClient {
             // Thinking/reasoning content
             const reasoning = choice.delta?.reasoning_content;
             if (reasoning) {
+              firstTokenReceived = true;
               callbacks.onThinking(reasoning);
             }
 
             // Regular content
             if (choice.delta?.content) {
+              firstTokenReceived = true;
               callbacks.onContent(choice.delta.content);
             }
 
