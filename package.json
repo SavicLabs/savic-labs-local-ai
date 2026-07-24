@@ -1,5 +1,5 @@
 {
-  "name": "savic-labs-copilot",
+  "name": "savic-labs-local-ai",
   "displayName": "SavicLabs Local AI for Copilot Chat",
   "description": "Use your local llama.cpp models in GitHub Copilot Chat. Zero config — auto-discovers models, supports thinking/reasoning, tool calling, and vision proxy.",
   "icon": "resources/icon.png",
@@ -8,7 +8,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/SavicLabs/savic-labs-copilot"
+    "url": "https://github.com/SavicLabs/savic-labs-local-ai"
   },
   "engines": {
     "vscode": "^1.125.0",

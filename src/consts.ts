@@ -29,7 +29,7 @@ export const SET_VISION_MODEL_URI_PATH = '/setVisionModel';
 export const LANGUAGE_MODEL_CHAT_SYSTEM_ROLE = 3;
 
 /** Walkthrough contribution ID. */
-export const WALKTHROUGH_ID = 'SavicLabs.savic-labs-copilot#savicLabsGettingStarted';
+export const WALKTHROUGH_ID = 'SavicLabs.savic-labs-local-ai#savicLabsGettingStarted';
 
 /** memento key tracking whether the welcome walkthrough has been shown. */
 export const WELCOME_SHOWN_KEY = 'savicLabs.welcomeShown';
