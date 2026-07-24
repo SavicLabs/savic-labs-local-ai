@@ -156,9 +156,12 @@ export async function waitForModelLoaded(
     }
 
     try {
+      const controller = new AbortController();
+      const pollTimeout = setTimeout(() => controller.abort(), 5000);
       const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/models`, {
-        signal: AbortSignal.timeout(5000),
+        signal: controller.signal,
       });
+      clearTimeout(pollTimeout);
 
       if (response.ok) {
         const data = await response.json();

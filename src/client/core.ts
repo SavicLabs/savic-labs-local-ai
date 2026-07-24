@@ -84,7 +84,7 @@ export class SavicLabsClient {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
-        // Don't retry on client errors (4xx) or cancellation
+        // Don't retry on client errors (4xx) or user cancellation
         if (isAbortError(error) && cancellationToken?.isCancellationRequested) {
           return;
         }
@@ -93,7 +93,7 @@ export class SavicLabsClient {
           break; // Client error, don't retry
         }
 
-        if (!isRetryable(error)) {
+        if (!isAbortError(error) && !isRetryable(error)) {
           break; // Non-retryable error
         }
 
@@ -179,12 +179,12 @@ export class SavicLabsClient {
           return;
         }
 
-        // Start/reset stall detection timer (30s with no data = stalled)
+        // Start/reset stall detection timer (60s with no data = stalled)
         if (stallTimer) clearTimeout(stallTimer);
         stallTimer = setTimeout(() => {
-          logger.warn(`Stream stalled (30s no data) for model ${request.model}`);
+          logger.warn(`Stream stalled (60s no data) for model ${request.model}`);
           controller.abort();
-        }, 30_000);
+        }, 60_000);
         if (setStallTimer) setStallTimer(stallTimer);
 
         const { done, value } = await reader.read();

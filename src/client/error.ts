@@ -98,6 +98,13 @@ export function createUserFacingError(error: unknown, modelId?: string): Error {
     );
   }
   if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    if (msg.includes('aborted') || msg.includes('abort')) {
+      return new UserFacingError(
+        `Request was aborted for model '${modelId ?? 'unknown'}'. ` +
+        'This may happen if the model takes too long to respond. Try increasing savicLabs.requestTimeoutMs.'
+      );
+    }
     return new UserFacingError(error.message);
   }
   return new UserFacingError(String(error));
