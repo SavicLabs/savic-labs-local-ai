@@ -2,7 +2,10 @@
 
 Use your local AI models directly in GitHub Copilot Chat. Works with **any OpenAI-compatible API** — llama.cpp, Ollama, vLLM, text-generation-webui, or your own server.
 
-> **Multi-server support** — aggregate models from multiple backends in one picker. Each model shows its source (`[llama.cpp]`, `[Ollama]`, etc.) so you always know which server is handling the request.
+> **Multi-server support** — aggregate models from multiple backends in one picker. Each model shows its source (`llama.cpp`, `Ollama`, `vLLM`) so you always know which server is handling the request.
+
+[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-Marketplace-blue)](https://marketplace.visualstudio.com/items?itemName=SavicLabs.savic-labs-local-ai)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
@@ -195,3 +198,7 @@ npm run lint     # TypeScript type check
 ## License
 
 MIT
+
+---
+
+**[saviclabs.com](https://saviclabs.com)** — Local AI, world-class.

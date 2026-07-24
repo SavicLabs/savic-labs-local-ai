@@ -10,6 +10,7 @@
     "type": "git",
     "url": "https://github.com/SavicLabs/savic-labs-local-ai"
   },
+  "homepage": "https://saviclabs.com",
   "engines": {
     "vscode": "^1.125.0",
     "node": ">=20"
