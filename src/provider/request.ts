@@ -43,7 +43,11 @@ export async function prepareChatRequest(input: PrepareRequestInput): Promise<Pr
   const client = new SavicLabsClient(baseUrl, timeoutMs);
 
   const isThinkingModel = modelInfo.capabilities?.thinking ?? false;
-  const maxTokens = getMaxTokens();
+  
+  // Max tokens: per-model config overrides global setting
+  const perModelMaxTokens = (options as Record<string, unknown>).modelConfiguration as { maxTokens?: number } | undefined;
+  const globalMaxTokens = getMaxTokens();
+  const maxTokens = perModelMaxTokens?.maxTokens ?? globalMaxTokens;
 
   // Vision resolution
   const visionResolution = await resolveImageMessages(messages, token, getVisionDescriber);

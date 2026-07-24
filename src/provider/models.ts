@@ -237,9 +237,7 @@ export function toChatInfo(model: DiscoveredModel): vscode.LanguageModelChatInfo
       imageInput: model.hasVision,
       ...(model.hasThinking && !model.isFailed ? { thinking: true } : {}),
     },
-    ...(model.hasThinking && !model.isFailed
-      ? { configurationSchema: buildThinkingEffortSchema() }
-      : {}),
+    configurationSchema: buildConfigurationSchema(model.hasThinking && !model.isFailed),
     ...(model.isFailed
       ? { statusIcon: new vscode.ThemeIcon('warning'), tooltip: 'This model failed to load on the server. Restart your llama.cpp router to retry.' }
       : {}),
@@ -247,30 +245,43 @@ export function toChatInfo(model: DiscoveredModel): vscode.LanguageModelChatInfo
 }
 
 /**
- * Build the thinking/reasoning effort configuration schema for the model picker.
+ * Build the model configuration schema for the picker sidebar.
+ * Includes max output tokens for all models, reasoning effort for thinking models.
  */
-function buildThinkingEffortSchema(): vscode.LanguageModelChatConfigurationSchema {
-  return {
-    properties: {
-      reasoningEffort: {
-        type: 'string',
-        title: t('status.thinking'),
-        enum: ['none', 'high', 'max'],
-        enumItemLabels: [
-          t('thinking.none'),
-          t('thinking.high'),
-          t('thinking.max'),
-        ],
-        enumDescriptions: [
-          t('thinking.none.desc'),
-          t('thinking.high.desc'),
-          t('thinking.max.desc'),
-        ],
-        default: 'high',
-        group: 'navigation',
-      },
+function buildConfigurationSchema(hasThinking: boolean): vscode.LanguageModelChatConfigurationSchema {
+  const properties: Record<string, unknown> = {
+    maxTokens: {
+      type: 'number',
+      title: 'Max Output Tokens',
+      description: 'Maximum tokens in the response. 0 = unlimited (server default).',
+      default: 0,
+      minimum: 0,
+      maximum: 100000,
+      group: 'navigation',
     },
   };
+
+  if (hasThinking) {
+    properties.reasoningEffort = {
+      type: 'string',
+      title: t('status.thinking'),
+      enum: ['none', 'high', 'max'],
+      enumItemLabels: [
+        t('thinking.none'),
+        t('thinking.high'),
+        t('thinking.max'),
+      ],
+      enumDescriptions: [
+        t('thinking.none.desc'),
+        t('thinking.high.desc'),
+        t('thinking.max.desc'),
+      ],
+      default: 'high',
+      group: 'navigation',
+    };
+  }
+
+  return { properties } as vscode.LanguageModelChatConfigurationSchema;
 }
 
 /**
