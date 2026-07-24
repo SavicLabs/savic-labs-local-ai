@@ -1,42 +1,63 @@
 # SavicLabs Local AI for Copilot Chat
 
-Use your local llama.cpp models directly in GitHub Copilot Chat. **Zero config** — auto-discovers models, auto-detects thinking/reasoning capability, supports tool calling and vision proxy.
+Use your local AI models directly in GitHub Copilot Chat. Works with **any OpenAI-compatible API** — llama.cpp, Ollama, vLLM, text-generation-webui, or your own server.
 
 > Built on the same architecture as the DeepSeek V4 extension for Copilot Chat.
 
-## Features
+---
 
-- **Zero-config model discovery** — Detects all models from your llama.cpp or OpenAI-compatible API endpoint via `/v1/models`
-- **Context Window Protection** — Prevents overflow crashes by estimating tokens before sending and intelligently truncating when needed
-- **Auto-retry & Timeout** — Retries on transient failures (503, network errors) with exponential backoff; configurable timeout
-- **Stream Stall Detection** — Detects stalled streams (30s no data) and recovers
-- **Model Load Progress** — Shows "Loading model..." with elapsed time while waiting for large models to load
-- **Thinking/Reasoning** — Full support for Qwen's chain-of-thought with collapsible thinking blocks
-- **Tool Calling** — Agent-mode tool support (file operations, terminal, search, etc.)
-- **Vision Proxy** — Images automatically described by an available Copilot vision model (GPT-4o, Claude, etc.)
-- **Request Classification** — Automatically disables thinking for trivial tasks (chat titles, todo tracking)
-- **Token Usage Reporting** — Adaptive token estimation calibrated from real API usage
-- **Debug Mode** — Verbose logging and request dumps for diagnostics
-- **Model ID Overrides** — Map VS Code model IDs to different API model names
+## What You Need
+
+This extension connects Copilot Chat to a **local or remote OpenAI-compatible API server**. You need one of these running:
+
+| Backend | Default URL | Setup |
+|---|---|---|
+| **[Ollama](https://ollama.com)** | `http://127.0.0.1:11434/v1` | Install Ollama → `ollama pull qwen3` → done |
+| **[llama.cpp](https://github.com/ggml-org/llama.cpp)** | `http://127.0.0.1:8080/v1` | `llama-server -m model.gguf` |
+| **[vLLM](https://github.com/vllm-project/vllm)** | `http://127.0.0.1:8000/v1` | `vllm serve model-name` |
+| **Anything OpenAI-compatible** | Your URL | `/v1/models` + `/v1/chat/completions` endpoints |
+
+**The easiest way to start**: Install [Ollama](https://ollama.com), pull a model, and point the extension to `http://127.0.0.1:11434/v1`.
+
+---
 
 ## Quick Start
 
-1. Make sure your llama.cpp router is running (e.g., on `http://127.0.0.1:18080/v1`)
+1. **Start your server** (Ollama, llama.cpp, vLLM, etc.)
 2. Open Copilot Chat (`Ctrl+Shift+I` / `Cmd+Shift+I`)
-3. Click the model dropdown and find the **SavicLabs** section
-4. Select a model and start chatting
+3. Click the model dropdown → **SavicLabs** section → pick a model
+4. Start chatting
 
-### Configure Endpoint
+### Change the Endpoint
 
-Default endpoint: `http://127.0.0.1:18080/v1`
+Default: `http://127.0.0.1:18080/v1`
 
-To change it:
-- Command Palette → **SavicLabs: Configure Endpoint**
-- Or set `savicLabs.baseUrl` in settings
+- `Ctrl+Shift+P` → **SavicLabs: Configure Endpoint**
+- Or set `savicLabs.baseUrl` in settings:
+
+```json
+{
+  "savicLabs.baseUrl": "http://127.0.0.1:11434/v1"
+}
+```
+
+---
+
+## Features
+
+- **Zero-config model discovery** — Detects all models from your OpenAI-compatible endpoint via `/v1/models`
+- **Context Window Protection** — Prevents overflow crashes by estimating tokens and intelligently truncating
+- **Auto-retry & Timeout** — Retries on transient failures (503, network errors) with exponential backoff
+- **Stream Stall Detection** — Detects stalled streams (30s no data) and recovers
+- **Model Load Progress** — Shows "Loading model..." while waiting for large models to load
+- **Thinking/Reasoning** — Full Qwen chain-of-thought with collapsible thinking blocks
+- **Tool Calling** — Agent-mode tools (file ops, terminal, search, etc.)
+- **Vision Proxy** — Images auto-described by an available Copilot vision model
+- **Request Classification** — Auto-disables thinking for trivial tasks
+- **Token Usage Reporting** — Adaptive token estimation from real API data
+- **Debug Mode** — Verbose logging and request dumps
 
 ## Settings
-
-| Setting | Default | Description |
 |---|---|---|
 | `savicLabs.baseUrl` | `http://127.0.0.1:18080/v1` | API endpoint URL |
 | `savicLabs.maxTokens` | `0` (unlimited) | Max output tokens per response |
@@ -86,6 +107,29 @@ Configure via **SavicLabs: Configure Vision Proxy** or the `savicLabs.visionMode
 - VS Code `>= 1.116.0`
 - A running llama.cpp server or OpenAI-compatible API endpoint
 - [GitHub Copilot Chat](https://marketplace.visualstudio.com/items?itemName=GitHub.copilot-chat) extension
+
+## Troubleshooting
+
+### "No models showing in the picker"
+
+1. Make sure your server is running: `curl http://127.0.0.1:18080/v1/models`
+2. Run **SavicLabs: Refresh Models** from the Command Palette
+3. Check the logs: **SavicLabs: Show Logs** → look for errors
+4. Verify your endpoint URL in settings
+
+### "Server error (HTTP 500)"
+
+Your model may have failed to load. Restart your server and run **SavicLabs: Refresh Models**.
+
+### "fetch failed"
+
+Your server isn't running or the URL is wrong. Check the endpoint and try `curl`-ing it.
+
+### Models appear but thinking doesn't work
+
+Thinking is auto-detected from the model's spec-type and ID. Qwen-family models get thinking automatically. If your model supports reasoning but isn't detected, add it to `savicLabs.modelIdOverrides`.
+
+---
 
 ## Architecture
 
