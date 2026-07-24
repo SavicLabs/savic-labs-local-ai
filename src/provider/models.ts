@@ -266,7 +266,7 @@ export function toChatInfo(model: DiscoveredModel): vscode.LanguageModelChatInfo
       imageInput: model.hasVision,
       ...(model.hasThinking && !model.isFailed ? { thinking: true } : {}),
     },
-    configurationSchema: buildConfigurationSchema(model.hasThinking && !model.isFailed),
+    configurationSchema: buildConfigurationSchema(model),
     ...(model.isFailed
       ? { statusIcon: new vscode.ThemeIcon('warning'), tooltip: 'This model failed to load on the server. Restart your llama.cpp router to retry.' }
       : {}),
@@ -277,8 +277,17 @@ export function toChatInfo(model: DiscoveredModel): vscode.LanguageModelChatInfo
  * Build the model configuration schema for the picker sidebar.
  * Includes max output tokens for all models, reasoning effort for thinking models.
  */
-function buildConfigurationSchema(hasThinking: boolean): vscode.LanguageModelChatConfigurationSchema {
+function buildConfigurationSchema(model: DiscoveredModel): vscode.LanguageModelChatConfigurationSchema {
   const properties: Record<string, unknown> = {
+    maxContextTokens: {
+      type: 'number',
+      title: 'Max Context',
+      description: `Maximum input tokens sent to the model. 0 = use full server context (${(model.maxInputTokens / 1024).toFixed(0)}K). Lower values = faster, less memory.`,
+      default: 0,
+      minimum: 0,
+      maximum: model.maxInputTokens,
+      group: 'navigation',
+    },
     maxTokens: {
       type: 'number',
       title: 'Max Output Tokens',
@@ -290,7 +299,7 @@ function buildConfigurationSchema(hasThinking: boolean): vscode.LanguageModelCha
     },
   };
 
-  if (hasThinking) {
+  if (model.hasThinking && !model.isFailed) {
     properties.reasoningEffort = {
       type: 'string',
       title: t('status.thinking'),
