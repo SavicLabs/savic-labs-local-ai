@@ -78,7 +78,23 @@ export async function fetchAllModels(
     }
   }
 
-  return allModels;
+  return deduplicateModels(allModels);
+}
+
+/** Deduplicate models across endpoints. If same name appears twice, tag with source. */
+function deduplicateModels(models: DiscoveredModel[]): DiscoveredModel[] {
+  const nameCounts = new Map<string, number>();
+  for (const m of models) {
+    nameCounts.set(m.displayName, (nameCounts.get(m.displayName) || 0) + 1);
+  }
+
+  return models.map((m) => {
+    if ((nameCounts.get(m.displayName) || 0) > 1) {
+      // Append source to disambiguate
+      return { ...m, displayName: `${m.displayName} (${m.sourceLabel})` };
+    }
+    return m;
+  });
 }
 
 /**
@@ -184,8 +200,9 @@ function parseModelEntry(entry: DiscoveredModelEntry, endpoint: string): Discove
     displayName = cleanModelId(id);
   }
 
-  // Detail line
+  // Detail line — source label FIRST so it's always visible
   const parts: string[] = [];
+  parts.push(`[${sourceLabel}]`);
   parts.push(`${quantType}`);
   parts.push(`${ctxSize >= 1024 ? Math.round(ctxSize / 1024) + 'K' : ctxSize} ctx`);
   if (hasThinking) {
@@ -200,7 +217,6 @@ function parseModelEntry(entry: DiscoveredModelEntry, endpoint: string): Discove
   if (isFailed) {
     parts.push('CRASHED');
   }
-  parts.push(`[${sourceLabel}]`);
   const detail = parts.join(' · ');
 
   return {
@@ -301,23 +317,24 @@ export function getConfiguredThinkingEffort(options: vscode.LanguageModelChatReq
 
 // ---- Helpers ----
 
-/** Clean up a HuggingFace-style model ID for display. */
+/** Clean up a model ID for display. */
 function cleanModelId(id: string): string {
-  // Remove hf-repo prefix
-  let name = id.replace(/^.+\/([^/]+)$/, '$1');
-
-  // Split by colon and take last meaningful part
-  const colonParts = name.split(':');
-  if (colonParts.length > 1) {
-    // If it's a quant tag, keep both parts
-    const last = colonParts[colonParts.length - 1];
-    if (/^[QI][0-9]/.test(last) || /^F[0-9]/.test(last)) {
-      return colonParts.slice(-2).join(' ');
-    }
-    name = last;
+  // HF repo style: "org/ModelName-GGUF:quant" → "ModelName quant"
+  const hfMatch = id.match(/^.+\/([^/]+)$/);
+  if (hfMatch) {
+    const stripped = hfMatch[1]; // e.g., "Qwen3.6-27B-GGUF:Q4_K_M"
+    return stripped
+      .replace(/-GGUF$/i, '')
+      .replace(/:/g, ' ')
+      .replace(/-/g, ' ');
   }
 
-  return name;
+  // Ollama style: "qwen3.5:14b", "codellama:13b-instruct" → replace : with space
+  if (id.includes(':')) {
+    return id.replace(/:/g, ' ');
+  }
+
+  return id;
 }
 
 /** Guess quantization type from model ID. */
