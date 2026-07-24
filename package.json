@@ -11,8 +11,8 @@
     "url": "https://github.com/SavicLabs/savic-labs-copilot"
   },
   "engines": {
-    "vscode": "^1.116.0",
-    "node": ">=24"
+    "vscode": "^1.125.0",
+    "node": ">=20"
   },
   "categories": [
     "AI",
@@ -184,7 +184,10 @@
     "vscode:prepublish": "npm run compile",
     "compile": "npm run clean && tsc -p ./",
     "watch": "npm run clean && tsc -watch -p ./",
-    "lint": "tsc --noEmit -p ./"
+    "lint": "tsc --noEmit -p ./",
+    "package": "npx @vscode/vsce package --allow-missing-repository",
+    "publish": "npx @vscode/vsce publish --allow-missing-repository",
+    "login": "npx @vscode/vsce login SavicLabs"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
