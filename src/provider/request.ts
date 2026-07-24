@@ -44,10 +44,10 @@ export async function prepareChatRequest(input: PrepareRequestInput): Promise<Pr
 
   const isThinkingModel = modelInfo.capabilities?.thinking ?? false;
   
-  // Max tokens: per-model config overrides global setting
-  const perModelMaxTokens = (options as Record<string, unknown>).modelConfiguration as { maxTokens?: number } | undefined;
-  const globalMaxTokens = getMaxTokens();
-  const maxTokens = perModelMaxTokens?.maxTokens ?? globalMaxTokens;
+  // Max tokens: per-model config (from modelOptions) overrides global setting
+  const modelConfig = (options as Record<string, unknown>).modelOptions || (options as Record<string, unknown>).modelConfiguration || {};
+  const perModelMaxTokens = (modelConfig as { maxTokens?: number }).maxTokens;
+  const maxTokens = perModelMaxTokens ?? getMaxTokens();
 
   // Vision resolution
   const visionResolution = await resolveImageMessages(messages, token, getVisionDescriber);

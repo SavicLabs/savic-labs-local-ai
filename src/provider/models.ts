@@ -326,8 +326,9 @@ function buildConfigurationSchema(model: DiscoveredModel): vscode.LanguageModelC
  * Get the configured thinking effort from model options.
  */
 export function getConfiguredThinkingEffort(options: vscode.LanguageModelChatRequestOptions): 'none' | 'high' | 'max' {
-  const configuredEffort =
-    (options as Record<string, unknown>).modelConfiguration as { reasoningEffort?: string } | undefined;
+  // VS Code passes config through modelOptions at runtime, modelConfiguration is our augmentation
+  const modelConfig = (options as Record<string, unknown>).modelOptions || (options as Record<string, unknown>).modelConfiguration;
+  const configuredEffort = (modelConfig as { reasoningEffort?: string } | undefined)?.reasoningEffort;
 
   if (typeof configuredEffort === 'string') {
     if (configuredEffort === 'none') return 'none';

@@ -97,14 +97,14 @@ Hover over any model in the picker to open the configuration sidebar:
 
 ## Settings
 |---|---|---|
-| `savicLabs.baseUrl` | `http://127.0.0.1:18080/v1` | Primary API endpoint URL |
+| `savicLabs.baseUrl` | `http://127.0.0.1:18080/v1` | Primary endpoint (fallback when endpoints is empty) |
 | `savicLabs.endpoints` | `[]` | Array of endpoint URLs for multi-server aggregation |
-| `savicLabs.maxTokens` | `0` (unlimited) | Max output tokens per response |
+| `savicLabs.maxTokens` | `0` (unlimited) | Global max output tokens per response |
 | `savicLabs.requestTimeoutMs` | `120000` (2 min) | HTTP request timeout in ms |
 | `savicLabs.modelIdOverrides` | `{}` | Map VS Code model IDs to API model IDs |
-| `savicLabs.debugMode` | `minimal` | Logging verbosity: `minimal`, `metadata`, `verbose` |
-| `savicLabs.visionModel` | `""` (auto-detect) | Model to use for image description |
-| `savicLabs.visionPrompt` | *(built-in)* | Custom prompt for vision descriptions |
+| `savicLabs.debugMode` | `minimal` | `minimal`, `metadata`, or `verbose` |
+| `savicLabs.visionModel` | `""` (auto-detect) | Copilot model for image descriptions |
+| `savicLabs.visionPrompt` | *(built-in)* | Custom vision description prompt |
 | `savicLabs.experimental.stabilizeToolList` | `false` | Experimental tool list stabilization |
 
 ## Commands
