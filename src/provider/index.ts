@@ -196,6 +196,14 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
       // Will be handled by vision proxy in prepareChatRequest
     }
 
+    // Pre-request check: verify model isn't in a failed state on the server
+    if (modelInfo.tooltip?.includes('failed to load')) {
+      throw new Error(
+        `Model '${modelInfo.name}' has failed to load on the server. ` +
+        'Please restart your llama.cpp router and run "SavicLabs: Refresh Models".'
+      );
+    }
+
     // Classify request for logging
     const requestKind = classifyProviderRequest({
       messages: messages as unknown as { role: number; content: readonly { value?: string }[] }[],
@@ -238,7 +246,7 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
       if (token.isCancellationRequested) {
         return;
       }
-      const userError = createUserFacingError(error);
+      const userError = createUserFacingError(error, modelInfo.id);
       logger.error(`[${requestKind}] Chat request failed`, error);
       throw userError;
     }

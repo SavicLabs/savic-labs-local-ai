@@ -17,6 +17,8 @@ interface DiscoveredModelEntry {
   status?: {
     value: string;
     args: string[];
+    failed?: boolean;
+    exit_code?: number;
   };
   meta?: {
     n_ctx?: number;
@@ -39,6 +41,7 @@ export interface DiscoveredModel {
   hasThinking: boolean;
   hasVision: boolean;
   isLoaded: boolean;
+  isFailed: boolean;
   specType: string;
   quantType: string;
 }
@@ -122,6 +125,7 @@ function parseModelEntry(entry: DiscoveredModelEntry): DiscoveredModel {
 
   // Status
   const isLoaded = entry.status?.value === 'loaded';
+  const isFailed = entry.status?.failed === true || entry.status?.value === 'failed';
 
   // Quant type
   const quantType = entry.meta?.ftype ?? guessQuantFromId(id);
@@ -147,6 +151,9 @@ function parseModelEntry(entry: DiscoveredModelEntry): DiscoveredModel {
   if (!isLoaded) {
     parts.push('unloaded');
   }
+  if (isFailed) {
+    parts.push('CRASHED');
+  }
   const detail = parts.join(' · ');
 
   return {
@@ -158,6 +165,7 @@ function parseModelEntry(entry: DiscoveredModelEntry): DiscoveredModel {
     hasThinking,
     hasVision,
     isLoaded,
+    isFailed,
     specType,
     quantType,
   };
@@ -178,10 +186,13 @@ export function toChatInfo(model: DiscoveredModel): vscode.LanguageModelChatInfo
     capabilities: {
       toolCalling: 128,
       imageInput: model.hasVision,
-      ...(model.hasThinking ? { thinking: true } : {}),
+      ...(model.hasThinking && !model.isFailed ? { thinking: true } : {}),
     },
-    ...(model.hasThinking
+    ...(model.hasThinking && !model.isFailed
       ? { configurationSchema: buildThinkingEffortSchema() }
+      : {}),
+    ...(model.isFailed
+      ? { statusIcon: new vscode.ThemeIcon('warning'), tooltip: 'This model failed to load on the server. Restart your llama.cpp router to retry.' }
       : {}),
   };
 }

@@ -74,8 +74,20 @@ export function normalizeRequestError(error: unknown, _context: ErrorContext): E
 }
 
 /** Create a user-friendly error from any error. */
-export function createUserFacingError(error: unknown): Error {
+export function createUserFacingError(error: unknown, modelId?: string): Error {
   if (error instanceof HttpError) {
+    if (error.statusCode === 500) {
+      return new UserFacingError(
+        `Server error (HTTP 500) for model '${modelId ?? 'unknown'}'. ` +
+        'The model may have failed to load. Try restarting your llama.cpp router.'
+      );
+    }
+    if (error.statusCode === 503) {
+      return new UserFacingError(
+        `Server unavailable (HTTP 503) for model '${modelId ?? 'unknown'}'. ` +
+        'The model may still be loading. Wait a few seconds and try again.'
+      );
+    }
     return new UserFacingError(
       `Server error (HTTP ${error.statusCode}). Check your endpoint URL and server status.`
     );

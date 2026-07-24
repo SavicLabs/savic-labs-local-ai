@@ -65,7 +65,7 @@ export async function streamChatCompletion(params: {
           reportCopilotContextUsage(progress, usage, prepared.requestKind);
         },
         onError: (error: Error) => {
-          throw createUserFacingError(error);
+          throw createUserFacingError(error, prepared.request.model);
         },
         onDone: () => {
           reportReplayMarkerOnce(prepared, progress, state);
