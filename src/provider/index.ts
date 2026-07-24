@@ -143,11 +143,10 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
 
       const models = discovered.map(toChatInfo);
 
-      if (getDebugLoggingEnabled()) {
-        logger.info(`Discovered ${models.length} models from ${this.client.baseUrl}`);
-        for (const m of discovered) {
-          logger.debug(`  ${m.displayName} (${m.id}) — ${m.detail}`);
-        }
+      // Always log discovered models so users can verify what's available
+      logger.info(`Discovered ${models.length} model(s) from ${this.client.baseUrl}:`);
+      for (const m of discovered) {
+        logger.info(`  ${m.displayName} — ${m.detail}`);
       }
 
       this.cachedModels = { models, timestamp: now };
