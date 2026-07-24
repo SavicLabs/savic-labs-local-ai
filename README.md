@@ -2,7 +2,7 @@
 
 Use your local AI models directly in GitHub Copilot Chat. Works with **any OpenAI-compatible API** — llama.cpp, Ollama, vLLM, text-generation-webui, or your own server.
 
-> Built on the same architecture as the DeepSeek V4 extension for Copilot Chat.
+> **World-class context management** — never crashes from context overflow. Intelligent truncation, auto-retry, stall detection, and model load progress built in.
 
 ---
 

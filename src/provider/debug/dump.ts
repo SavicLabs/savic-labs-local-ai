@@ -53,7 +53,7 @@ export async function dumpProviderInput(params: {
 /**
  * Dump the full request payload to disk when verbose debug mode is enabled.
  */
-export async function dumpDeepSeekRequest(
+export async function dumpRequest(
   request: unknown,
   params: {
     globalStorageUri: vscode.Uri;

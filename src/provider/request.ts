@@ -7,7 +7,7 @@ import type { ChatCompletionRequest } from '../client/core';
 import { getBaseUrl, getApiModelId, getMaxTokens, getRequestTimeoutMs } from '../config';
 import { convertMessages, convertTools, countMessageChars } from './convert';
 import { getConfiguredThinkingEffort } from './models';
-import { classifyDeepSeekRequest, shouldForceThinkingNone, formatRequestLogLine } from './routing/classifier';
+import { classifyApiRequest, shouldForceThinkingNone, formatRequestLogLine } from './routing/classifier';
 import { resolveImageMessages } from './vision/resolve';
 import type { VisionDescriber } from './vision/service';
 import { logger } from '../logger';
@@ -49,18 +49,18 @@ export async function prepareChatRequest(input: PrepareRequestInput): Promise<Pr
   const resolvedMessages = visionResolution.messages;
 
   // Convert messages
-  const deepseekMessages = convertMessages(resolvedMessages, isThinkingModel);
+  const convertedMessages = convertMessages(resolvedMessages, isThinkingModel);
 
   // Convert tools (handle readonly array from VS Code API)
   const tools = convertTools(options.tools ? [...options.tools] : undefined);
 
   // Count chars for adaptive token ratio
-  const totalRequestChars = countMessageChars(deepseekMessages);
+  const totalRequestChars = countMessageChars(convertedMessages);
 
   // Build base request
   const baseRequest: ChatCompletionRequest = {
     model: getApiModelId(modelInfo.id),
-    messages: deepseekMessages,
+    messages: convertedMessages,
     stream: true,
     tools,
     tool_choice: tools && tools.length > 0 ? 'auto' : undefined,
@@ -68,7 +68,7 @@ export async function prepareChatRequest(input: PrepareRequestInput): Promise<Pr
   };
 
   // Classify request
-  const requestKind = classifyDeepSeekRequest({
+  const requestKind = classifyApiRequest({
     request: baseRequest,
     inputMessages: input.messages as unknown as { role: number; content: readonly { value?: string }[] }[],
   });
@@ -91,7 +91,7 @@ export async function prepareChatRequest(input: PrepareRequestInput): Promise<Pr
   };
 
   // Collect trailing tool result IDs for diagnostics
-  const trailingToolResultIds = collectTrailingToolResultIds(deepseekMessages);
+  const trailingToolResultIds = collectTrailingToolResultIds(convertedMessages);
 
   if (forceNoneThinking) {
     logger.debug(

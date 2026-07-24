@@ -3,7 +3,7 @@
  */
 export {
   classifyProviderRequest,
-  classifyDeepSeekRequest,
+  classifyApiRequest,
   shouldForceThinkingNone,
   formatRequestLogLine,
   formatModelFields,

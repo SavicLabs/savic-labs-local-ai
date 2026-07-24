@@ -1,6 +1,5 @@
 /**
  * Request classifier — identifies the type of request to optimize behavior.
- * Direct port of the DeepSeek V4 extension's classifier logic.
  */
 
 import type { ChatCompletionRequest } from '../../client/core';
@@ -52,7 +51,7 @@ export interface ProviderRequestInput {
   tools?: { name: string }[];
 }
 
-export interface DeepSeekRequestInput {
+export interface ClassifyRequestInput {
   request: ChatCompletionRequest;
   inputMessages?: { role: number; content: readonly { value?: string }[] }[];
 }
@@ -78,7 +77,7 @@ export function classifyProviderRequest(input: ProviderRequestInput): RequestKin
   });
 }
 
-export function classifyDeepSeekRequest(input: DeepSeekRequestInput): RequestKind {
+export function classifyApiRequest(input: ClassifyRequestInput): RequestKind {
   const messages = input.request.messages as { role: string; content: string }[] | undefined;
   return classifyRequest({
     firstText:
@@ -86,7 +85,7 @@ export function classifyDeepSeekRequest(input: DeepSeekRequestInput): RequestKin
       (input.inputMessages ? getFirstVscodeText(input.inputMessages) : ''),
     latestUserText:
       (input.inputMessages ? getLatestVscodeUserText(input.inputMessages) : '') ||
-      getLatestDeepSeekUserText(input.request),
+      getLatestUserText(input.request),
     toolNames: input.request.tools?.map((tool: unknown) => {
       const fn = (tool as Record<string, unknown>).function as Record<string, unknown> | undefined;
       return String(fn?.name ?? '');
@@ -169,11 +168,6 @@ function startsWithAny(text: string, prefixes: string[]): boolean {
   return prefixes.some((prefix) => text.startsWith(prefix));
 }
 
-function getDeepSeekToolName(tool: Record<string, unknown>): string {
-  const fn = tool.function as Record<string, unknown> | undefined;
-  return String(fn?.name ?? '');
-}
-
 function getFirstVscodeText(
   messages: { role: number; content: readonly { value?: string }[] }[]
 ): string {
@@ -207,7 +201,7 @@ function getVscodeMessageText(message: { content: readonly { value?: string }[] 
   return text;
 }
 
-function getLatestDeepSeekUserText(request: ChatCompletionRequest): string {
+function getLatestUserText(request: ChatCompletionRequest): string {
   const messages = request.messages as { role: string; content: string }[] | undefined;
   if (!messages) {
     return '';
