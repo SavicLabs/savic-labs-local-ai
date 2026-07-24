@@ -70,6 +70,17 @@ Default: `http://127.0.0.1:18080/v1`
 
 ---
 
+### Per-Model Configuration
+
+Hover over any model in the picker to open the configuration sidebar:
+
+| Setting | Description |
+|---|---|
+| **Max Output Tokens** | Per-model output token limit. 0 = unlimited. Overrides global `maxTokens`. |
+| **Reasoning Effort** | Thinking depth (thinking models only): Disabled / High / Maximum |
+
+---
+
 ## Features
 
 - **Zero-config model discovery** — Detects all models from your OpenAI-compatible endpoint via `/v1/models`
