@@ -2,7 +2,7 @@
 
 Use your local AI models directly in GitHub Copilot Chat. Works with **any OpenAI-compatible API** — llama.cpp, Ollama, vLLM, text-generation-webui, or your own server.
 
-> **World-class context management** — never crashes from context overflow. Intelligent truncation, auto-retry, stall detection, and model load progress built in.
+> **Multi-server support** — aggregate models from multiple backends in one picker. Each model shows its source (`[llama.cpp]`, `[Ollama]`, etc.) so you always know which server is handling the request.
 
 ---
 
@@ -18,6 +18,33 @@ This extension connects Copilot Chat to a **local or remote OpenAI-compatible AP
 | **Anything OpenAI-compatible** | Your URL | `/v1/models` + `/v1/chat/completions` endpoints |
 
 **The easiest way to start**: Install [Ollama](https://ollama.com), pull a model, and point the extension to `http://127.0.0.1:11434/v1`.
+
+---
+
+### Multi-Server Setup
+
+Aggregate models from multiple backends in one picker — each model shows its source.
+
+```json
+{
+  "savicLabs.endpoints": [
+    "http://127.0.0.1:18080/v1",
+    "http://127.0.0.1:11434/v1"
+  ]
+}
+```
+
+Results in:
+
+```
+SavicLabs
+├── qwen3.6:27b-q4_K_M  [Q4_K · 32K ctx · thinking · port 18080]
+├── llama3.2:3B          [Q4_K · 32K ctx · port 18080]
+├── qwen3:14b            [Q4_K_M · 8K ctx · thinking · port 11434]
+└── codellama:13b         [Q4_0 · 4K ctx · port 11434]
+```
+
+Leave `endpoints` empty to use the single `baseUrl`.
 
 ---
 
@@ -59,7 +86,8 @@ Default: `http://127.0.0.1:18080/v1`
 
 ## Settings
 |---|---|---|
-| `savicLabs.baseUrl` | `http://127.0.0.1:18080/v1` | API endpoint URL |
+| `savicLabs.baseUrl` | `http://127.0.0.1:18080/v1` | Primary API endpoint URL |
+| `savicLabs.endpoints` | `[]` | Array of endpoint URLs for multi-server aggregation |
 | `savicLabs.maxTokens` | `0` (unlimited) | Max output tokens per response |
 | `savicLabs.requestTimeoutMs` | `120000` (2 min) | HTTP request timeout in ms |
 | `savicLabs.modelIdOverrides` | `{}` | Map VS Code model IDs to API model IDs |

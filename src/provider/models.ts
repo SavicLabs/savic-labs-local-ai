@@ -14,6 +14,7 @@ import { t } from '../i18n';
 interface DiscoveredModelEntry {
   id: string;
   aliases?: string[];
+  owned_by?: string;
   status?: {
     value: string;
     args: string[];
@@ -44,6 +45,10 @@ export interface DiscoveredModel {
   isFailed: boolean;
   specType: string;
   quantType: string;
+  /** Source endpoint URL for routing requests. */
+  sourceUrl: string;
+  /** Human-readable source label (e.g., "llama.cpp", "Ollama"). */
+  sourceLabel: string;
 }
 
 /** /v1/models API response shape. */
@@ -52,13 +57,38 @@ interface ModelsResponse {
 }
 
 /**
- * Fetch available models from the API endpoint.
+ * Fetch available models from ALL configured endpoints.
+ * Aggregates results and labels each model with its source.
  */
-export async function fetchModels(
-  client: SavicLabsClient,
+export async function fetchAllModels(
+  endpoints: string[],
   token?: vscode.CancellationToken
 ): Promise<DiscoveredModel[]> {
-  const url = `${client.baseUrl}/models`;
+  const allModels: DiscoveredModel[] = [];
+
+  for (const endpoint of endpoints) {
+    if (token?.isCancellationRequested) break;
+
+    try {
+      const models = await fetchModelsFromEndpoint(endpoint, token);
+      allModels.push(...models);
+    } catch (error) {
+      logger.warn(`Failed to fetch models from ${endpoint}: ${error instanceof Error ? error.message : String(error)}`);
+      // Continue with other endpoints
+    }
+  }
+
+  return allModels;
+}
+
+/**
+ * Fetch models from a single endpoint.
+ */
+async function fetchModelsFromEndpoint(
+  endpoint: string,
+  token?: vscode.CancellationToken
+): Promise<DiscoveredModel[]> {
+  const url = `${endpoint.replace(/\/+$/, '')}/models`;
 
   const controller = new AbortController();
   const cancelListener = token?.onCancellationRequested(() => controller.abort());
@@ -79,7 +109,7 @@ export async function fetchModels(
 
     return raw.data
       .filter((m) => m.id && m.id !== 'default')
-      .map((m) => parseModelEntry(m));
+      .map((m) => parseModelEntry(m, endpoint));
   } finally {
     cancelListener?.dispose();
   }
@@ -88,7 +118,7 @@ export async function fetchModels(
 /**
  * Parse a single model entry from the API.
  */
-function parseModelEntry(entry: DiscoveredModelEntry): DiscoveredModel {
+function parseModelEntry(entry: DiscoveredModelEntry, endpoint: string): DiscoveredModel {
   const id = entry.id;
   const displayAlias = entry.aliases?.[0];
 
@@ -118,6 +148,22 @@ function parseModelEntry(entry: DiscoveredModelEntry): DiscoveredModel {
   // Detect thinking capability
   const hasThinking =
     THINKING_SPEC_TYPES.has(specType) || isThinkingModelId(id);
+
+  // Build source label
+  const ownedBy = entry.owned_by;
+  let sourceLabel: string;
+  if (ownedBy && ownedBy !== 'llamacpp') {
+    sourceLabel = ownedBy;
+  } else {
+    try {
+      const hostname = new URL(endpoint).hostname;
+      sourceLabel = hostname === '127.0.0.1' || hostname === 'localhost'
+        ? `port ${new URL(endpoint).port || '80'}`
+        : hostname;
+    } catch {
+      sourceLabel = endpoint.replace(/https?:\/\//, '').split('/')[0];
+    }
+  }
 
   // Detect vision capability
   const modalities = entry.architecture?.input_modalities ?? [];
@@ -154,6 +200,7 @@ function parseModelEntry(entry: DiscoveredModelEntry): DiscoveredModel {
   if (isFailed) {
     parts.push('CRASHED');
   }
+  parts.push(`[${sourceLabel}]`);
   const detail = parts.join(' · ');
 
   return {
@@ -168,6 +215,8 @@ function parseModelEntry(entry: DiscoveredModelEntry): DiscoveredModel {
     isFailed,
     specType,
     quantType,
+    sourceUrl: endpoint,
+    sourceLabel,
   };
 }
 

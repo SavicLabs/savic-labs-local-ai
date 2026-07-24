@@ -3,7 +3,7 @@
   "displayName": "SavicLabs — Local AI for Copilot",
   "description": "Use your local llama.cpp models in GitHub Copilot Chat. Zero config — auto-discovers models, supports thinking/reasoning, tool calling, and vision proxy.",
   "icon": "resources/icon.png",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "publisher": "SavicLabs",
   "license": "MIT",
   "repository": {
@@ -113,6 +113,12 @@
           "type": "string",
           "default": "http://127.0.0.1:18080/v1",
           "description": "%savicLabs.config.baseUrl.description%"
+        },
+        "savicLabs.endpoints": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "%savicLabs.config.endpoints.description%"
         },
         "savicLabs.maxTokens": {
           "type": "number",

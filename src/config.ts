@@ -7,10 +7,23 @@
 import * as vscode from 'vscode';
 import { CONFIG_SECTION, DEFAULT_BASE_URL } from './consts';
 
-/** Get the API base URL from settings. Falls back to the default llama.cpp router URL. */
+/** Get the primary API base URL from settings. */
 export function getBaseUrl(): string {
   const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
   return config.get<string>('baseUrl') || DEFAULT_BASE_URL;
+}
+
+/**
+ * Get all configured endpoint URLs.
+ * Falls back to the single baseUrl if endpoints array is empty.
+ */
+export function getEndpoints(): string[] {
+  const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
+  const endpoints = config.get<string[]>('endpoints');
+  if (endpoints && endpoints.length > 0) {
+    return endpoints.filter((e) => e.trim().length > 0);
+  }
+  return [getBaseUrl()];
 }
 
 /**

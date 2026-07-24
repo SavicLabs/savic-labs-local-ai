@@ -32,12 +32,13 @@ export interface PrepareRequestInput {
   options: vscode.LanguageModelChatRequestOptions;
   token: vscode.CancellationToken;
   getVisionDescriber: () => Promise<VisionDescriber | undefined>;
+  sourceUrl?: string;
 }
 
 export async function prepareChatRequest(input: PrepareRequestInput): Promise<PreparedRequest> {
-  const { modelInfo, messages, options, token, getVisionDescriber } = input;
+  const { modelInfo, messages, options, token, getVisionDescriber, sourceUrl } = input;
 
-  const baseUrl = getBaseUrl();
+  const baseUrl = sourceUrl || getBaseUrl();
   const timeoutMs = getRequestTimeoutMs();
   const client = new SavicLabsClient(baseUrl, timeoutMs);
 

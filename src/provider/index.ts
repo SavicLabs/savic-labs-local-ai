@@ -4,10 +4,10 @@
  */
 import * as vscode from 'vscode';
 import { SavicLabsClient, createUserFacingError } from '../client';
-import { getBaseUrl, getDebugLoggingEnabled, getRequestTimeoutMs } from '../config';
+import { getBaseUrl, getDebugLoggingEnabled, getRequestTimeoutMs, getEndpoints } from '../config';
 import { logger } from '../logger';
 import { t } from '../i18n';
-import { fetchModels, toChatInfo } from './models';
+import { fetchAllModels, toChatInfo, type DiscoveredModel } from './models';
 import { prepareChatRequest, waitForModelLoaded } from './request';
 import { streamChatCompletion } from './stream';
 import { estimateTokenCount } from './tokens';
@@ -25,6 +25,7 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
   private changeEmitter = new vscode.EventEmitter<void>();
   private isActive = true;
   private cachedModels: { models: vscode.LanguageModelChatInformation[]; timestamp: number } | undefined;
+  private modelSourceMap = new Map<string, string>(); // modelId → sourceUrl
   private globalStorageUri: vscode.Uri;
 
   /** Adaptive chars-per-token ratio, calibrated from actual usage data. */
@@ -131,7 +132,8 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
     }
 
     try {
-      const discovered = await fetchModels(this.client, token);
+      const endpoints = getEndpoints();
+      const discovered = await fetchAllModels(endpoints, token);
 
       if (discovered.length === 0) {
         if (!options.silent) {
@@ -144,6 +146,12 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
       }
 
       const models = discovered.map(toChatInfo);
+
+      // Store source URL mapping for request routing
+      this.modelSourceMap.clear();
+      for (const m of discovered) {
+        this.modelSourceMap.set(m.id, m.sourceUrl);
+      }
 
       // Always log discovered models so users can verify what's available
       logger.info(`Discovered ${models.length} model(s) from ${this.client.baseUrl}:`);
@@ -241,8 +249,9 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
 
     try {
       // Health check: wait for model to be loaded before sending
+      const sourceUrl = this.modelSourceMap.get(modelInfo.id) || getBaseUrl();
       await waitForModelLoaded(
-        getBaseUrl(),
+        sourceUrl,
         modelInfo.id,
         extendedProgress,
         token
@@ -254,6 +263,7 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
         options: requestOptions,
         token,
         getVisionDescriber: () => this.visionService.get(),
+        sourceUrl,
       });
 
       await streamChatCompletion({
