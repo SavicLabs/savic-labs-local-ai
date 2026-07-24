@@ -78,7 +78,7 @@ export async function fetchAllModels(
     }
   }
 
-  return deduplicateModels(allModels);
+  return allModels;
 }
 
 /** Deduplicate models across endpoints. If same name appears twice, tag with source. */
@@ -204,17 +204,18 @@ function parseModelEntry(entry: DiscoveredModelEntry, endpoint: string): Discove
   // Quant type
   const quantType = entry.meta?.ftype ?? guessQuantFromId(id);
 
-  // Display name
+  // Display name — source label baked in so users can always distinguish
   let displayName: string;
   if (displayAlias) {
     displayName = displayAlias;
   } else {
     displayName = cleanModelId(id);
   }
+  displayName = `${displayName}  ·  ${sourceLabel}`;
 
-  // Detail line — source label FIRST so it's always visible
+  // Remove deduplication — source is now always in the name
+  // Detail line — technical specs only
   const parts: string[] = [];
-  parts.push(`[${sourceLabel}]`);
   parts.push(`${quantType}`);
   parts.push(`${ctxSize >= 1024 ? Math.round(ctxSize / 1024) + 'K' : ctxSize} ctx`);
   if (hasThinking) {
