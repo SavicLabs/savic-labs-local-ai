@@ -26,48 +26,31 @@ This extension connects Copilot Chat to a **local or remote OpenAI-compatible AP
 
 ### Multi-Server Setup
 
-Aggregate models from multiple backends in one picker — each model shows its source.
+Connect to **both** llama.cpp and Ollama at the same time — models from both appear in one list:
 
-```json
-{
-  "savicLabs.endpoints": [
-    "http://127.0.0.1:18080/v1",
-    "http://127.0.0.1:11434/v1"
-  ]
-}
+1. `Ctrl+Shift+P` → **SavicLabs: Configure Backends**
+2. Select **Ollama** → confirm the URL → select **llama.cpp Router** → confirm
+3. `Ctrl+Shift+P` → **SavicLabs: Refresh Models**
+
+You'll see models tagged by source:
+```
+qwen3.6:27b  ·  llama.cpp
+llama3.2:3b  ·  llama.cpp
+qwen3:14b    ·  Ollama
+llama3.1:8b  ·  Ollama
 ```
 
-Results in:
-
-```
-SavicLabs
-├── qwen3.6:27b-q4_K_M  [Q4_K · 32K ctx · thinking · port 18080]
-├── llama3.2:3B          [Q4_K · 32K ctx · port 18080]
-├── qwen3:14b            [Q4_K_M · 8K ctx · thinking · port 11434]
-└── codellama:13b         [Q4_0 · 4K ctx · port 11434]
-```
-
-Leave `endpoints` empty to use the single `baseUrl`.
+**Tip**: Run **SavicLabs: Check Backend Health** anytime to see which servers are online.
 
 ---
 
 ## Quick Start
 
 1. **Start your server** (Ollama, llama.cpp, vLLM, etc.)
-2. Open Copilot Chat (`Ctrl+Shift+I` / `Cmd+Shift+I`)
-3. Click the model dropdown → **SavicLabs** section → pick a model
-4. Start chatting
-
-### Change the Endpoint
-
-Default: `http://127.0.0.1:18080/v1`
-
-- `Ctrl+Shift+P` → **SavicLabs: Configure Endpoint**
-- Or set `savicLabs.baseUrl` in settings:
-
-```json
-{
-  "savicLabs.baseUrl": "http://127.0.0.1:11434/v1"
+2. `Ctrl+Shift+P` → **SavicLabs: Configure Backends** → pick your backend(s)
+3. Open Copilot Chat (`Ctrl+Shift+I`)
+4. Click the model dropdown → **SavicLabs** section → pick a model
+5. Start chatting
 }
 ```
 

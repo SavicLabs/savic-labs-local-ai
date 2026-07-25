@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import { SavicLabsClient, createUserFacingError } from '../client';
 import { getBaseUrl, getDebugLoggingEnabled, getRequestTimeoutMs, getEndpoints } from '../config';
+import { showBackendConfig } from './backend-setup';
 import { logger } from '../logger';
 import { t } from '../i18n';
 import { fetchAllModels, toChatInfo, type DiscoveredModel } from './models';
@@ -57,33 +58,23 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
   // ---- Public commands ----
 
   async configureEndpoint(): Promise<void> {
-    const currentUrl = getBaseUrl();
-    const newUrl = await vscode.window.showInputBox({
-      prompt: t('command.configureEndpoint.prompt'),
-      placeHolder: t('command.configureEndpoint.placeholder'),
-      value: currentUrl,
-      ignoreFocusOut: true,
-      validateInput: (value) => {
-        if (!value?.trim()) {
-          return t('command.configureEndpoint.empty');
-        }
-        try {
-          new URL(value);
-          return undefined;
-        } catch {
-          return 'Invalid URL format. Example: http://127.0.0.1:18080/v1';
-        }
-      },
-    });
+    const currentEndpoints = getEndpoints();
 
-    if (newUrl) {
-      const config = vscode.workspace.getConfiguration('savicLabs');
-      await config.update('baseUrl', newUrl.trim(), vscode.ConfigurationTarget.Global);
-      this.client = new SavicLabsClient(newUrl.trim(), getRequestTimeoutMs());
-      this.invalidateCache();
-      this.refreshModelPicker();
-      void vscode.window.showInformationMessage(t('command.configureEndpoint.saved'));
+    const result = await showBackendConfig(currentEndpoints);
+
+    if (result !== undefined) {
+      // User made changes — save and refresh
+      await this.saveEndpoints(result);
+      await this.refreshModels();
     }
+  }
+
+  private async saveEndpoints(endpoints: string[]): Promise<void> {
+    const config = vscode.workspace.getConfiguration('savicLabs');
+    await config.update('endpoints', endpoints, vscode.ConfigurationTarget.Global);
+    this.client = new SavicLabsClient(endpoints[0] || getBaseUrl(), getRequestTimeoutMs());
+    this.invalidateCache();
+    this.refreshModelPicker();
   }
 
   async refreshModels(): Promise<void> {

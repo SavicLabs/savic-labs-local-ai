@@ -3,7 +3,7 @@
   "displayName": "SavicLabs — Local AI for Copilot",
   "description": "Use your local llama.cpp models in GitHub Copilot Chat. Zero config — auto-discovers models, supports thinking/reasoning, tool calling, and vision proxy.",
   "icon": "resources/icon.png",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "SavicLabs",
   "license": "MIT",
   "repository": {
@@ -53,6 +53,10 @@
       {
         "command": "savicLabs.configureEndpoint",
         "title": "%savicLabs.command.configureEndpoint%"
+      },
+      {
+        "command": "savicLabs.checkBackends",
+        "title": "%savicLabs.command.checkBackends%"
       },
       {
         "command": "savicLabs.refreshModels",
@@ -119,7 +123,7 @@
           "type": "array",
           "items": { "type": "string" },
           "default": [],
-          "description": "%savicLabs.config.endpoints.description%"
+          "markdownDescription": "API endpoints to aggregate models from. Each should be an OpenAI-compatible `/v1` URL. If empty, falls back to `#savicLabs.baseUrl#`. Use the **SavicLabs: Configure Endpoint** command for a guided setup — it auto-detects Ollama, llama.cpp, and vLLM backends."
         },
         "savicLabs.maxTokens": {
           "type": "number",

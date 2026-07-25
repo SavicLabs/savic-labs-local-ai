@@ -8,6 +8,8 @@ import * as vscode from 'vscode';
 import { logger } from './logger';
 import { t } from './i18n';
 import { SavicLabsChatProvider } from './provider';
+import { checkAllBackendsHealth } from './provider/backend-setup';
+import { getEndpoints } from './config';
 import { openRequestDumpsFolder } from './provider/debug/dump';
 
 let activeProvider: SavicLabsChatProvider | undefined;
@@ -33,6 +35,24 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       vscode.commands.registerCommand('savicLabs.configureEndpoint', () =>
         provider.configureEndpoint()
       ),
+      vscode.commands.registerCommand('savicLabs.checkBackends', async () => {
+        const endpoints = getEndpoints();
+        if (endpoints.length === 0) {
+          void vscode.window.showInformationMessage('No backends configured. Run "Configure Endpoint" first.');
+          return;
+        }
+        const statuses = await checkAllBackendsHealth(endpoints);
+        const lines: string[] = [];
+        for (const [url, status] of statuses) {
+          const icon = status.reachable ? '🟢' : '🔴';
+          const models = status.modelCount !== undefined ? ` — ${status.modelCount} model(s)` : '';
+          lines.push(`${icon} ${url} (${status.latencyMs}ms)${models}`);
+        }
+        void vscode.window.showInformationMessage(
+          `Backend Status:\n${lines.join('\n')}`,
+          { modal: true }
+        );
+      }),
       vscode.commands.registerCommand('savicLabs.refreshModels', () =>
         provider.refreshModels()
       ),
