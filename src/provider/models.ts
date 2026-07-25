@@ -23,6 +23,7 @@ interface DiscoveredModelEntry {
   };
   meta?: {
     n_ctx?: number;
+    n_ctx_train?: number;
     n_params?: number;
     size?: number;
     ftype?: string;
@@ -138,18 +139,28 @@ function parseModelEntry(entry: DiscoveredModelEntry, endpoint: string): Discove
   const id = entry.id;
   const displayAlias = entry.aliases?.[0];
 
-  // Parse context size from args or meta
-  let ctxSize = 32768;
-  if (entry.meta?.n_ctx) {
-    ctxSize = entry.meta.n_ctx;
-  } else if (entry.status?.args) {
+  // Parse context size — prefer runtime status.args, capped by model training limit
+  let ctxSize = 65536;
+  let ctxTrain = 65536;
+  // First try actual runtime context from spawn args (most accurate)
+  if (entry.status?.args) {
     const ctxIdx = entry.status.args.indexOf('--ctx-size');
     if (ctxIdx >= 0 && ctxIdx + 1 < entry.status.args.length) {
       const parsed = parseInt(entry.status.args[ctxIdx + 1], 10);
-      if (!isNaN(parsed)) {
+      if (!isNaN(parsed) && parsed > 0) {
         ctxSize = parsed;
       }
     }
+  }
+  // Get model training context limit (absolute max)
+  if (entry.meta?.n_ctx_train) {
+    ctxTrain = entry.meta.n_ctx_train;
+  }
+  // Effective context = min(requested, training limit)
+  ctxSize = Math.min(ctxSize, ctxTrain);
+  // Fall back to GGUF metadata if no runtime args found
+  if (ctxSize === 65536 && entry.meta?.n_ctx) {
+    ctxSize = Math.min(entry.meta.n_ctx, ctxTrain);
   }
 
   // Detect spec-type for thinking capability
@@ -278,23 +289,39 @@ export function toChatInfo(model: DiscoveredModel): vscode.LanguageModelChatInfo
  * Includes max output tokens for all models, reasoning effort for thinking models.
  */
 function buildConfigurationSchema(model: DiscoveredModel): vscode.LanguageModelChatConfigurationSchema {
+  // Build context size options — always include 0 (server default) + common sizes
+  const serverCtx = model.maxInputTokens;
+  const serverCtxK = serverCtx >= 1024 ? Math.round(serverCtx / 1024) : serverCtx;
+  const ctxOptions = ['0']; // 0 = use full server context
+  for (const k of [4, 8, 16, 32, 64, 128]) {
+    if (k * 1024 < serverCtx) ctxOptions.push(String(k * 1024));
+  }
+  ctxOptions.push(String(serverCtx)); // full server context as explicit option
+
+  const ctxLabels = ctxOptions.map(v => {
+    const n = parseInt(v, 10);
+    if (n === 0) return `Server default (${serverCtxK}K)`;
+    if (n >= 1024) return `${Math.round(n / 1024)}K`;
+    return String(n);
+  });
+
   const properties: Record<string, unknown> = {
     maxContextTokens: {
-      type: 'number',
+      type: 'string',
       title: 'Max Context',
-      description: `Maximum input tokens sent to the model. 0 = use full server context (${(model.maxInputTokens / 1024).toFixed(0)}K). Lower values = faster, less memory.`,
-      default: 0,
-      minimum: 0,
-      maximum: model.maxInputTokens,
+      description: `Limits input tokens sent to the model. Lower = faster prompt processing. Server context: ${serverCtxK}K.`,
+      enum: ctxOptions,
+      enumItemLabels: ctxLabels,
+      default: '0',
       group: 'navigation',
     },
     maxTokens: {
-      type: 'number',
+      type: 'string',
       title: 'Max Output Tokens',
-      description: 'Maximum tokens in the response. 0 = unlimited (server default).',
-      default: 0,
-      minimum: 0,
-      maximum: 100000,
+      description: 'Maximum tokens in the response.',
+      enum: ['0', '512', '1024', '2048', '4096', '8192', '16384', '32768', '65536'],
+      enumItemLabels: ['Unlimited', '512', '1K', '2K', '4K', '8K', '16K', '32K', '64K'],
+      default: '0',
       group: 'navigation',
     },
   };

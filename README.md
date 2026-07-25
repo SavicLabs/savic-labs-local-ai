@@ -75,9 +75,13 @@ Default: `http://127.0.0.1:18080/v1`
 
 ### Per-Model Configuration
 
-Hover over any model in the picker to open the configuration sidebar:
+Click the **gear icon** (⚙️) next to any model in the picker to adjust settings:
 
 | Setting | Description |
+|---|---|
+| **Max Context** | Limit input tokens. Dropdown: 4K / 8K / 16K / 32K / 64K / 128K / Server Default. Lower = faster prompt processing. Useful for long conversations — forces truncation before hitting server limits. |
+| **Max Output Tokens** | Limit response length. Dropdown: Unlimited / 512 / 1K / 2K / 4K / 8K / 16K / 32K / 64K. |
+| **Reasoning Effort** | (Thinking models only) none / high / max. Controls depth of chain-of-thought reasoning. |
 |---|---|
 | **Max Output Tokens** | Per-model output token limit. 0 = unlimited. Overrides global `maxTokens`. |
 | **Reasoning Effort** | Thinking depth (thinking models only): Disabled / High / Maximum |

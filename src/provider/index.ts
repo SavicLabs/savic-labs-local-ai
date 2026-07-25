@@ -215,7 +215,7 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
 
     // Context window check — prevent overflow crashes before sending
     const modelConfig = (requestOptions as Record<string, unknown>).modelOptions || (requestOptions as Record<string, unknown>).modelConfiguration || {};
-    const perModelMaxContext = (modelConfig as { maxContextTokens?: number }).maxContextTokens;
+    const perModelMaxContext = parseInt(String((modelConfig as { maxContextTokens?: string | number }).maxContextTokens ?? '0'), 10) || 0;
     const effectiveMaxContext = perModelMaxContext || modelInfo.maxInputTokens;
     
     const contextCheck = checkContextWindow(

@@ -34,8 +34,8 @@ export function checkContextWindow(
   messages: vscode.LanguageModelChatMessage[],
   maxInputTokens: number,
   charsPerToken: number,
-  /** Reserve this many tokens for the response (default 1024). */
-  reserveTokens: number = 1024
+  /** Reserve this many tokens for the response and tool calls (default 4096). */
+  reserveTokens: number = 4096
 ): ContextCheckResult {
   const effectiveMax = maxInputTokens - reserveTokens;
 

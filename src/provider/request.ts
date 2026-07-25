@@ -145,7 +145,7 @@ export async function waitForModelLoaded(
   modelId: string,
   progress: vscode.Progress<vscode.LanguageModelChatResponsePart>,
   token: vscode.CancellationToken,
-  maxWaitMs: number = 60_000
+  maxWaitMs: number = 120_000
 ): Promise<void> {
   const startTime = Date.now();
   let pollInterval = 500; // Start with 500ms, back off to 5s max

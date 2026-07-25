@@ -89,7 +89,7 @@ export function createUserFacingError(error: unknown, modelId?: string): Error {
       );
     }
     return new UserFacingError(
-      `Server error (HTTP ${error.statusCode}). Check your endpoint URL and server status.`
+      `Server error (HTTP ${error.statusCode}): ${error.responseBody?.slice(0, 200) || 'Check your endpoint URL and server status.'}`
     );
   }
   if (error instanceof NetworkError) {
