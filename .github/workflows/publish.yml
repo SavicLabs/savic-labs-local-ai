@@ -1,0 +1,55 @@
+name: Publish to VS Code Marketplace
+
+# Trusted Publishing — publishes with a short-lived GitHub OIDC token.
+# No Personal Access Token is stored anywhere.
+#
+# Requires a Trusted Publishing policy in the Marketplace publisher page with:
+#   Repository owner: SavicLabs
+#   Repository:       savic-labs-local-ai
+#   Workflow:         publish.yml
+#
+# Trigger: push a version tag (git tag v0.10.8 && git push --tags)
+#          or run manually from the Actions tab.
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    name: Publish extension
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required to request the OIDC token
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Publish to Visual Studio Marketplace
+        run: npx @vscode/vsce publish --oidc
+
+      # Open VSX reaches VSCodium, Cursor, Gitpod and Theia — none of which can
+      # install from the Microsoft Marketplace.
+      #
+      # Uses trusted publishing (OIDC) exactly like the step above: no token is
+      # stored anywhere. One-time setup, then enable it with a repo variable:
+      #   1. open-vsx.org → claim the "SavicLabs" namespace
+      #   2. user-settings/trusted-publishers → add a publisher for this repo
+      #      (owner SavicLabs, repo savic-labs-local-ai, workflow publish.yml)
+      #   3. gh variable set OPEN_VSX_ENABLED --body true
+      # Until step 3 the step is skipped, so it can never fail a release.
+      - name: Publish to Open VSX
+        if: vars.OPEN_VSX_ENABLED == 'true'
+        run: |
+          npx @vscode/vsce package --out extension.vsix
+          npx ovsx publish extension.vsix --trusted-publishing
