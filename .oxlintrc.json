@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "ignorePatterns": ["out/**", "test/**", "node_modules/**"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "no-unused-vars": "error",
+    "no-debugger": "error",
+    "no-duplicate-imports": "error",
+    "eqeqeq": "error"
+  }
+}

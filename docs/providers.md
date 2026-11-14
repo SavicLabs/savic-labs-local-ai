@@ -49,23 +49,23 @@ fallback: the Coding Plan preset falls back to its subscription models only, the
 pay-as-you-go preset to the full listed catalogue. The bundled catalogue is a fallback
 for discovery — it is not a promise about what the provider currently serves.
 
-A z.ai API key is required for both endpoints. It is stored in `savicLabs.apiKeys`.
+A z.ai API key is required for both endpoints and is stored in SecretStorage.
 
 ## Configuring a cloud provider
 
 1. Run **SavicLabs: Configure Backends**.
 2. Choose the cloud provider preset, or enter any OpenAI-compatible URL.
-3. Paste the API key when prompted. It is written to `savicLabs.apiKeys` for that endpoint.
+3. Paste the API key when prompted. It is stored in SecretStorage, never in settings.
 4. Run **SavicLabs: Refresh Models**.
 
-To remove a key later, delete its entry from `savicLabs.apiKeys` in your settings.
+To remove a key later, delete it from the endpoint entry via **Configure Backends**.
 
 ## Local network and self-hosted servers
 
 Plain `http://` endpoints are supported for LAN and loopback addresses, which is the
 normal case for a model server running on the same machine. The extension does not
 refuse non-TLS endpoints; it also does not add credentials to any host you have not
-configured. A key configured for one endpoint is not sent to another.
+configured. A key configured for one endpoint is never sent to another.
 
 ## Other providers
 

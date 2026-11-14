@@ -86,9 +86,12 @@ export async function resolveImageMessages(
     throw new Error(t('image.notSupported'));
   }
 
-  // Get prompt
+  // Get prompt. `{imageCount}` is substituted so a custom template can refer
+  // to how many images are being described.
   const customPrompt = getVisionPrompt();
-  const prompt = customPrompt || DEFAULT_VISION_PROMPT;
+  const prompt = customPrompt
+    ? customPrompt.replace(/\{imageCount\}/g, String(stats.imageCount))
+    : DEFAULT_VISION_PROMPT;
 
   // Describe images
   const imageDataParts = latestImageParts.map((p) => p.part);

@@ -58,31 +58,6 @@ export function getMaxTokens(): number | undefined {
   return value > 0 ? value : undefined;
 }
 
-/**
- * Get the API key map (endpoint URL → Bearer token).
- * Used for cloud providers like z.ai that require authentication.
- */
-export function getApiKeys(): Record<string, string> {
-  const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
-  return config.get<Record<string, string>>('apiKeys') ?? {};
-}
-
-/**
- * Get the API key for a specific endpoint URL, if configured.
- * Matches by normalized URL (trailing slashes stripped).
- */
-export function getApiKeyForEndpoint(endpoint: string): string | undefined {
-  const keys = getApiKeys();
-  const normalized = endpoint.replace(/\/+$/, '');
-  // Try exact match first
-  if (keys[normalized]) return keys[normalized];
-  // Try with trailing slash variants
-  for (const [key, value] of Object.entries(keys)) {
-    if (key.replace(/\/+$/, '') === normalized) return value;
-  }
-  return undefined;
-}
-
 /** Diagnostic mode. */
 export function getDebugMode(): 'minimal' | 'metadata' | 'verbose' {
   const config = vscode.workspace.getConfiguration(CONFIG_SECTION);

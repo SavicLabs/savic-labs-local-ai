@@ -58,7 +58,8 @@ description into the prompt.
 
 - `visionModel` selects the describing model by VS Code language model ID. When empty,
   the first available vision-capable model is used.
-- `visionPrompt` replaces the built-in instruction sent to the describing model.
+- `visionPrompt` replaces the built-in instruction. `{imageCount}` is replaced with the
+  number of images in the message.
 
 The description is generated through VS Code's language model API, so image content is
 handled by whichever Copilot model is selected — not by the local server.
@@ -107,19 +108,10 @@ and is suppressed automatically for trivial requests such as file reads.
 
 ## API keys
 
-API keys live in the `savicLabs.apiKeys` setting, as a map from endpoint URL to key:
+API keys are stored with VS Code's SecretStorage (the OS credential store), keyed by
+endpoint, and sent only to that endpoint as `Authorization: Bearer`.
 
-```json
-{
-  "savicLabs.apiKeys": {
-    "https://api.z.ai/api/paas/v4": "your-key"
-  }
-}
-```
-
-The key for an endpoint is sent only to that endpoint, as
-`Authorization: Bearer <key>`. Local servers (Ollama, llama.cpp, vLLM) do not need one.
-
-Note that this stores the key in plain text in your VS Code settings file. Use
-**SavicLabs: Configure Backends** rather than editing settings by hand where possible,
-and avoid committing `.vscode/settings.json` if it contains keys.
+Keys are never written to `settings.json`. Earlier versions accepted a
+`savicLabs.apiKeys` setting; on first activation those entries are moved into
+SecretStorage and the setting is deleted. If both exist for the same endpoint, the value
+already in SecretStorage wins.

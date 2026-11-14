@@ -5,6 +5,50 @@ All notable changes to the SavicLabs Local AI extension will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.10] — 2026-11-13
+
+### Security
+- Note: removing keys from `settings.json` does not erase historical backups,
+  synchronised copies, or Git history. Rotate any key that was ever committed or synced.
+- **API keys moved out of `settings.json`** — keys are stored in VS Code SecretStorage
+  and sent only to the endpoint they belong to. A key left in the former
+  `savicLabs.apiKeys` setting is migrated on first activation and the setting is removed;
+  an existing SecretStorage value is never overwritten by a stale plaintext one.
+
+### Fixed
+- **Context-window guard never fired** — `checkContextWindow` passed a character count
+  through an estimator that measures string length, so a 41,000-character conversation
+  estimated as a single-digit token count and truncation never triggered.
+- **Truncation mixed units** — the truncation loop compared character counts against a
+  token budget, keeping roughly four times more text than intended.
+- **`{imageCount}` was documented in the vision prompt setting but never substituted.**
+  Custom vision prompts now receive the image count.
+
+### Changed
+- `npm run lint` now runs oxlint; type checking moved to `npm run typecheck`.
+- Added a test suite (`npm test`) covering context estimation and truncation, model ID
+  namespacing, picker metadata, token estimation, JSON serialisation, and API key
+  migration and routing.
+- Added a CI workflow running type check, lint, tests, and packaging on pull requests.
+- Removed dead constants (`TOOLS_LIMIT`, `EXTERNAL_URLS`) and unused error-context
+  parameters.
+- Test files and lint configuration are excluded from the published VSIX.
+- README rewritten; reference material moved to `docs/`.
+
+## [0.10.9] — 2026-11-08
+
+### Changed
+- Excluded `.github/` from the published package.
+
+## [0.10.8] — 2026-11-08
+
+### Changed
+- Releases publish to the VS Code Marketplace with Trusted Publishing (OIDC) instead of a
+  stored personal access token.
+- Upgraded `@vscode/vsce` to 4.1, which provides `publish --oidc`.
+
+No runtime behaviour changed in 0.10.8 or 0.10.9.
+
 ## [0.10.7] — 2026-10-14
 
 ### Fixed — Context window

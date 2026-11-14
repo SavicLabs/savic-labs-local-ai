@@ -8,17 +8,6 @@
 /** VS Code configuration section prefix for all extension settings. */
 export const CONFIG_SECTION = 'savicLabs';
 
-/** External URLs. */
-export const EXTERNAL_URLS = {
-  llamaCpp: {
-    github: 'https://github.com/ggml-org/llama.cpp',
-    docs: 'https://github.com/ggml-org/llama.cpp/blob/master/examples/server/README.md',
-  },
-} as const;
-
-/** Maximum number of tool functions per request. */
-export const TOOLS_LIMIT = 128;
-
 /** Default endpoint for llama.cpp router. */
 export const DEFAULT_BASE_URL = 'http://127.0.0.1:18080/v1';
 

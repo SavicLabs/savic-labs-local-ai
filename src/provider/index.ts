@@ -4,7 +4,8 @@
  */
 import * as vscode from 'vscode';
 import { SavicLabsClient, createUserFacingError } from '../client';
-import { getBaseUrl, getDebugLoggingEnabled, getRequestTimeoutMs, getEndpoints, getApiKeyForEndpoint } from '../config';
+import { getBaseUrl, getDebugLoggingEnabled, getRequestTimeoutMs, getEndpoints } from '../config';
+import { getApiKeyForEndpoint } from '../secrets';
 import { showBackendConfig } from './backend-setup';
 import { logger } from '../logger';
 import { t } from '../i18n';
@@ -36,7 +37,7 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
 
   constructor(context: vscode.ExtensionContext) {
     this.client = new SavicLabsClient(getBaseUrl(), getRequestTimeoutMs(), 2, getApiKeyForEndpoint(getBaseUrl()));
-    this.visionService = new VisionService(context);
+    this.visionService = new VisionService();
     this.globalStorageUri = context.globalStorageUri;
 
     context.subscriptions.push(
@@ -46,14 +47,22 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
           e.affectsConfiguration('savicLabs.baseUrl') ||
           e.affectsConfiguration('savicLabs.endpoints') ||
           e.affectsConfiguration('savicLabs.modelIdOverrides') ||
-          e.affectsConfiguration('savicLabs.requestTimeoutMs') ||
-          e.affectsConfiguration('savicLabs.apiKeys')
+          e.affectsConfiguration('savicLabs.requestTimeoutMs')
         ) {
           this.client = new SavicLabsClient(getBaseUrl(), getRequestTimeoutMs(), 2, getApiKeyForEndpoint(getBaseUrl()));
           clearRequestCaches();
           this.invalidateCache();
           this.refreshModelPicker();
         }
+      }),
+      // Keys live in SecretStorage now, so changes arrive as secret events
+      // rather than configuration events.
+      context.secrets.onDidChange((e) => {
+        if (!e.key.startsWith('savicLabs.apiKey:')) return;
+        this.client = new SavicLabsClient(getBaseUrl(), getRequestTimeoutMs(), 2, getApiKeyForEndpoint(getBaseUrl()));
+        clearRequestCaches();
+        this.invalidateCache();
+        this.refreshModelPicker();
       })
     );
   }

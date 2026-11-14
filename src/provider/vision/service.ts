@@ -16,10 +16,6 @@ export interface VisionDescriber {
 export class VisionService {
   private currentDescriber: VisionDescriber | undefined;
 
-  constructor(_context: vscode.ExtensionContext) {
-    // Context reserved for future use (e.g. SecretStorage migration)
-  }
-
   /**
    * Get the current vision describer.
    * Returns undefined if no vision-capable model is available.

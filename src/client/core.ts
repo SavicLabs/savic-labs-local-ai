@@ -173,7 +173,7 @@ export class SavicLabsClient {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw await createHttpError(response, { baseUrl: this.baseUrl, request });
+        throw await createHttpError(response);
       }
 
       if (!response.body) {
@@ -331,7 +331,7 @@ export class SavicLabsClient {
       if (isAbortError(error) && cancellationToken?.isCancellationRequested) {
         return;
       }
-      throw normalizeRequestError(error, { baseUrl: this.baseUrl, request });
+      throw normalizeRequestError(error);
     } finally {
       clearTimeout(timeoutId);
       if (stallCheckInterval) clearTimeout(stallCheckInterval);

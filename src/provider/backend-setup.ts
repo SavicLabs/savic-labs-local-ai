@@ -9,7 +9,7 @@
  */
 import * as vscode from 'vscode';
 import { ZAI_ENDPOINTS } from '../consts';
-import { getApiKeys } from '../config';
+import { getApiKeyForEndpoint, setApiKey } from '../secrets';
 
 /** Known backend presets — easiest path for new users. */
 interface BackendPreset {
@@ -271,8 +271,8 @@ async function handleCloudPresetSelection(
   const endpointUrl = customUrl.trim();
 
   // Check if API key already exists for this endpoint
-  const existingKeys = getApiKeys();
-  let apiKey: string | undefined = existingKeys[endpointUrl];
+  const existingKey = getApiKeyForEndpoint(endpointUrl);
+  let apiKey: string | undefined = existingKey;
 
   if (!apiKey) {
     // Prompt for API key
@@ -289,10 +289,8 @@ async function handleCloudPresetSelection(
 
     if (!apiKey) return undefined;
 
-    // Save the API key to settings
-    const config = vscode.workspace.getConfiguration('savicLabs');
-    const updatedKeys = { ...existingKeys, [endpointUrl]: apiKey.trim() };
-    await config.update('apiKeys', updatedKeys, vscode.ConfigurationTarget.Global);
+    // Stored in VS Code SecretStorage, never in settings.json
+    await setApiKey(endpointUrl, apiKey);
     void vscode.window.showInformationMessage(
       `🔑 API key saved for ${preset.label.replace('$(cloud) ', '')}.`
     );

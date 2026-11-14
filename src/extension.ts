@@ -10,6 +10,7 @@ import { t } from './i18n';
 import { SavicLabsChatProvider } from './provider';
 import { checkAllBackendsHealth } from './provider/backend-setup';
 import { getEndpoints } from './config';
+import { initApiKeyStore } from './secrets';
 import { openRequestDumpsFolder } from './provider/debug/dump';
 
 let activeProvider: SavicLabsChatProvider | undefined;
@@ -18,6 +19,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   logger.info(`SavicLabs extension activating v${context.extension.packageJSON.version}`);
 
   try {
+    // Load API keys (and migrate any left in settings) before the provider
+    // is constructed — the constructor reads the primary endpoint's key.
+    await initApiKeyStore(context);
+
     const provider = new SavicLabsChatProvider(context);
     activeProvider = provider;
 

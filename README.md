@@ -76,11 +76,10 @@ All settings live under `savicLabs`. The defaults are usable without configurati
 | `savicLabs.requestTimeoutMs` | `120000` | Request timeout in milliseconds |
 | `savicLabs.modelIdOverrides` | `{}` | Map a picker model ID to a different API model ID |
 | `savicLabs.visionModel` | `""` | Copilot model used to describe images; empty auto-detects |
-| `savicLabs.apiKeys` | `{}` | Endpoint URL → API key, for cloud providers |
 | `savicLabs.debugMode` | `minimal` | `minimal`, `metadata`, or `verbose` |
 
-API keys are stored in the `savicLabs.apiKeys` setting as an endpoint-to-key map and are
-sent only to the matching endpoint as `Authorization: Bearer`. Local servers do not need one.
+API keys are **not** stored in settings. They are kept in VS Code's SecretStorage and
+are only sent to the endpoint they belong to.
 
 Full reference: [Configuration](https://github.com/SavicLabs/savic-labs-local-ai/blob/main/docs/configuration.md).
 

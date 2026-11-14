@@ -2,8 +2,13 @@
 .vscode-test/**
 .github/**
 src/**
+test/**
+docs/**
+CONTRIBUTING.md
+SECURITY.md
 node_modules/**
 .gitignore
+.oxlintrc.json
 **/tsconfig.json
 **/.git
 **/*.tsbuildinfo

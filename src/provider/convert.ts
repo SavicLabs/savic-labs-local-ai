@@ -4,8 +4,7 @@
  */
 import * as vscode from 'vscode';
 import { safeStringify } from '../json';
-import { parseFirstReplayMarker } from './replay/markers';
-import type { ReplayMarkerParsed } from './replay/markers';
+import { parseFirstReplayMarker, type ReplayMarkerParsed } from './replay/markers';
 import { REPLAY_MARKER_MIME } from './replay/consts';
 
 export interface OpenAiMessage {

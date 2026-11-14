@@ -3,16 +3,21 @@
  */
 import * as vscode from 'vscode';
 import { SavicLabsClient } from '../client';
-import { NonRetryableError } from '../client/error';
+import { NonRetryableError, HttpError } from '../client/error';
 import type { ChatCompletionRequest } from '../client/core';
-import { getBaseUrl, getApiModelId, getMaxTokens, getRequestTimeoutMs, getApiKeyForEndpoint } from '../config';
+import {
+  getBaseUrl,
+  getApiModelId,
+  getMaxTokens,
+  getRequestTimeoutMs,
+} from '../config';
+import { getApiKeyForEndpoint } from '../secrets';
 import { convertMessages, convertTools, countMessageChars } from './convert';
 import { getConfiguredThinkingEffort } from './models';
 import { shouldForceThinkingNone, formatRequestLogLine, classifyApiRequest, type RequestKind } from './routing/classifier';
 import { resolveImageMessages } from './vision/resolve';
 import type { VisionDescriber } from './vision/service';
 import { logger } from '../logger';
-import { HttpError } from '../client/error';
 
 export interface PreparedRequest {
   client: SavicLabsClient;

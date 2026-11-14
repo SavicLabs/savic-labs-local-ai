@@ -9,7 +9,7 @@
  * 5. Warn user at 75% and 90% thresholds
  */
 import * as vscode from 'vscode';
-import { estimateTokenCount } from './tokens';
+import { estimateTokensFromChars } from './tokens';
 
 export interface ContextCheckResult {
   /** Whether truncation was needed. */
@@ -44,7 +44,7 @@ export function checkContextWindow(
   for (const msg of messages) {
     totalChars += getMessageChars(msg);
   }
-  const estimatedTokens = estimateTokenCount(String(totalChars), charsPerToken);
+  const estimatedTokens = estimateTokensFromChars(totalChars, charsPerToken);
   const usagePercent = Math.round((estimatedTokens / effectiveMax) * 100);
 
   // If we're under the limit, no truncation needed
@@ -104,12 +104,15 @@ function truncateMessages(
     return {
       messages,
       droppedCount: 0,
-      estimatedTokens: estimateTokenCount(
-        String(messages.reduce((sum, m) => sum + getMessageChars(m), 0)),
+      estimatedTokens: estimateTokensFromChars(
+        messages.reduce((sum, m) => sum + getMessageChars(m), 0),
         charsPerToken
       ),
     };
   }
+
+  // Everything below counts characters, so convert the token budget once.
+  const maxChars = maxTokens * charsPerToken;
 
   // Always keep the first message (system prompt / initial context)
   const systemMsg = messages[0];
@@ -135,7 +138,7 @@ function truncateMessages(
       0
     );
 
-    if (systemChars + keptChars + msgChars + pendingChars > maxTokens) {
+    if (systemChars + keptChars + msgChars + pendingChars > maxChars) {
       // Can't fit this message — stop here
       break;
     }
@@ -158,7 +161,7 @@ function truncateMessages(
   return {
     messages: result,
     droppedCount,
-    estimatedTokens: estimateTokenCount(String(systemChars + keptChars), charsPerToken),
+    estimatedTokens: estimateTokensFromChars(systemChars + keptChars, charsPerToken),
   };
 }
 

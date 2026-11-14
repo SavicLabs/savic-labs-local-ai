@@ -12,6 +12,20 @@ export function estimateTokenCount(text: string, charsPerToken: number): number 
 }
 
 /**
+ * Estimate tokens from a character count.
+ *
+ * Separate from `estimateTokenCount` because that one measures a string's
+ * length; passing a number through it would measure the digits of the number
+ * instead of the amount of text.
+ */
+export function estimateTokensFromChars(charCount: number, charsPerToken: number): number {
+  if (charCount <= 0) {
+    return 0;
+  }
+  return Math.max(1, Math.ceil(charCount / charsPerToken));
+}
+
+/**
  * Update the adaptive chars-per-token ratio using exponential moving average.
  * newRatio = oldRatio * 0.7 + observedRatio * 0.3
  */

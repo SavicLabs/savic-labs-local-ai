@@ -6,7 +6,7 @@
  */
 import * as vscode from 'vscode';
 import { THINKING_SPEC_TYPES, isThinkingModelId, DEFAULT_MAX_OUTPUT_TOKENS, ZAI_MODELS, isZaiCodingPlan } from '../consts';
-import { getApiKeyForEndpoint } from '../config';
+import { getApiKeyForEndpoint } from '../secrets';
 import { logger } from '../logger';
 import { t } from '../i18n';
 

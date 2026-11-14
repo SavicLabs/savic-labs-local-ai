@@ -40,16 +40,8 @@ export class UserFacingError extends Error {
   }
 }
 
-interface ErrorContext {
-  baseUrl: string;
-  request: unknown;
-}
-
 /** Create an HttpError from a fetch Response. */
-export async function createHttpError(
-  response: Response,
-  _context: ErrorContext
-): Promise<HttpError> {
+export async function createHttpError(response: Response): Promise<HttpError> {
   let body: string;
   try {
     body = await response.text();
@@ -60,7 +52,7 @@ export async function createHttpError(
 }
 
 /** Normalize any error into a typed error. */
-export function normalizeRequestError(error: unknown, _context: ErrorContext): Error {
+export function normalizeRequestError(error: unknown): Error {
   if (error instanceof HttpError || error instanceof NetworkError) {
     return error;
   }
