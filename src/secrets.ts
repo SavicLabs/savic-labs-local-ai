@@ -53,10 +53,21 @@ async function migrateLegacySetting(context: vscode.ExtensionContext): Promise<v
   for (const [endpoint, key] of entries) {
     const normalized = normalizeEndpoint(endpoint);
     if (!normalized) continue;
-    const existing = await context.secrets.get(secretKey(normalized));
-    if (!existing) {
-      await context.secrets.store(secretKey(normalized), key.trim());
-      logger.info(`Migrated API key for ${normalized} to secure storage`);
+    try {
+      const existing = await context.secrets.get(secretKey(normalized));
+      if (!existing) {
+        await context.secrets.store(secretKey(normalized), key.trim());
+        logger.info(`Migrated API key for ${normalized} to secure storage`);
+      }
+    } catch (error) {
+      // Secure storage is unavailable — a headless Linux session with no
+      // keyring, for example. Abandon the migration without deleting the
+      // setting, so the credential is never lost.
+      logger.warn(
+        'Could not migrate API keys to secure storage; leaving them in settings',
+        error
+      );
+      return;
     }
     if (!indexedEndpoints.includes(normalized)) {
       indexedEndpoints.push(normalized);
@@ -100,8 +111,13 @@ export async function initApiKeyStore(context: vscode.ExtensionContext): Promise
   const stored = context.globalState.get<string[]>(INDEX_KEY);
   indexedEndpoints = Array.isArray(stored) ? [...stored] : [];
 
-  await migrateLegacySetting(context);
-  await reloadCache(context);
+  try {
+    await migrateLegacySetting(context);
+    await reloadCache(context);
+  } catch (error) {
+    // Never let key storage take the whole extension down.
+    logger.warn('API key store unavailable; continuing without it', error);
+  }
 
   context.subscriptions.push(
     context.secrets.onDidChange(async (e) => {
@@ -133,7 +149,12 @@ export async function setApiKey(endpoint: string, key: string): Promise<void> {
   const trimmed = key.trim();
   if (!normalized || !trimmed || !storage) return;
 
-  await storage.store(secretKey(normalized), trimmed);
+  try {
+    await storage.store(secretKey(normalized), trimmed);
+  } catch (error) {
+    logger.warn(`Could not store the API key for ${normalized} securely`, error);
+    return;
+  }
   cache.set(normalized, trimmed);
 
   if (!indexedEndpoints.includes(normalized)) {

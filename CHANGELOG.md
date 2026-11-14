@@ -5,6 +5,17 @@ All notable changes to the SavicLabs Local AI extension will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.11] — 2026-11-13
+
+### Fixed
+- **The extension failed to activate when secure storage was unavailable** — if
+  `secrets.store()` threw, the error escaped the API key migration and aborted
+  activation entirely, leaving the extension unusable. The migration now abandons
+  without deleting the plaintext setting (so no credential is lost), logs a
+  warning, and lets activation continue. This affects headless Linux sessions,
+  WSL, and machines without a keyring. Windows and macOS always provide a
+  credential store and were not affected.
+
 ## [0.10.10] — 2026-11-13
 
 ### Security

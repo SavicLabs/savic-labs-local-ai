@@ -72,3 +72,23 @@ test('an existing secret is not overwritten by a stale settings value', async ()
   assert.equal(secrets.getApiKeyForEndpoint('https://kept.test/v1'), 'from-secret');
   delete vscode.__settings.apiKeys;
 });
+
+test('when secure storage fails, the migration leaves the plaintext setting intact', async () => {
+  // A headless Linux session with no keyring can throw from secrets.store().
+  // The credential must not be thrown away in that case, and activation must
+  // still be able to continue.
+  const context = createExtensionContext();
+  vscode.__settings.apiKeys = { 'https://failing.test/v1': 'must-survive' };
+  context.secrets.store = async () => {
+    throw new Error('no keyring available');
+  };
+
+  await secrets.initApiKeyStore(context);
+
+  assert.equal(
+    vscode.__settings.apiKeys['https://failing.test/v1'],
+    'must-survive',
+    'the key must still be readable from settings'
+  );
+  delete vscode.__settings.apiKeys;
+});
