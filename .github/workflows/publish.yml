@@ -21,6 +21,12 @@ jobs:
   publish:
     name: Publish extension
     runs-on: ubuntu-latest
+    # Approval gate. The "publish" environment has a required reviewer, so
+    # every run stops here and waits for the owner to approve the deployment
+    # before any step executes — nothing can be published without that click.
+    # NOTE: the Marketplace trusted publishing policy for this repo must list
+    #       Environment = publish, otherwise the OIDC exchange is rejected.
+    environment: publish
     permissions:
       contents: read
       id-token: write # required to request the OIDC token
