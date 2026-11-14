@@ -81,3 +81,23 @@ the log, or `verbose` to also write one metadata file per request. Dumps contain
 message content. **SavicLabs: Open Request Dumps Folder** opens the directory.
 
 For issues that were fixed in earlier versions, see the [changelog](../CHANGELOG.md).
+
+## API keys after upgrading to 0.10.10
+
+0.10.10 moved API keys out of `settings.json` and into VS Code's SecretStorage.
+On first activation any keys in `savicLabs.apiKeys` are copied across and the
+setting is deleted, so there is nothing to re-enter.
+
+**If a key is missing after upgrading**, the migration did not complete. Re-enter
+it with **SavicLabs: Configure Backends**; it will be written to SecretStorage.
+
+**To check whether migration happened**, open `settings.json` and search for
+`savicLabs.apiKeys`. After a successful migration the entry is gone. The keys
+are not visible in the Settings UI at all, because they no longer live there.
+
+**Rotate the key** if the old `settings.json` was ever committed to a repository,
+included in a backup, or synchronised with Settings Sync. Deleting the value from
+your current settings does not remove it from those copies, nor from Git history.
+
+**Commands that need to be re-run**: none. Endpoint configuration is unaffected —
+only the keys move.
