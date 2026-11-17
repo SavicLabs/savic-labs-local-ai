@@ -7,71 +7,82 @@ const { createVscode, install } = require('./helpers/vscode.cjs');
 const vscode = createVscode();
 install(vscode);
 
-const { checkContextWindow } = require('../out/provider/context.js');
-const { LanguageModelTextPart, LanguageModelChatMessageRole } = vscode;
+const { measureContextUsage, ContextOverflowError } = require('../out/provider/context.js');
+const { LanguageModelTextPart, LanguageModelToolResultPart, LanguageModelChatMessageRole } = vscode;
 
 const SYSTEM = LanguageModelChatMessageRole.System;
 const USER = LanguageModelChatMessageRole.User;
-const ASSISTANT = LanguageModelChatMessageRole.Assistant;
 
 const message = (role, text) => ({ role, content: [new LanguageModelTextPart(text)] });
 
-// checkContextWindow reserves 4096 tokens for the response by default.
+// measureContextUsage reserves 4096 tokens for the response by default.
 const MAX_INPUT = 16_384;
+const BUDGET = MAX_INPUT - 4096;
 
-test('small conversations pass through untouched', () => {
+test('small conversations fit', () => {
   const messages = [message(SYSTEM, 'You are helpful.'), message(USER, 'Hi')];
-  const result = checkContextWindow(messages, MAX_INPUT, 4);
+  const usage = measureContextUsage(messages, MAX_INPUT, 4);
 
-  assert.equal(result.truncated, false);
-  assert.equal(result.messages, messages);
-  assert.equal(result.notice, undefined);
+  assert.equal(usage.fits, true);
+  assert.equal(usage.contextWindowTokens, MAX_INPUT);
+  assert.equal(usage.maxContextTokens, BUDGET);
+  assert.ok(usage.estimatedTokens > 0);
+  assert.ok(usage.usagePercent < 100);
 });
 
 test('large conversations are estimated in real token magnitudes', () => {
   // Regression: the character count used to be stringified before estimation,
-  // so ~41,000 characters measured as a single-digit token count and the
+  // so ~81,000 characters measured as a single-digit token count and the
   // overflow guard never fired.
   const messages = [message(SYSTEM, 's'.repeat(1000))];
   for (let i = 0; i < 40; i++) {
     messages.push(message(USER, 'u'.repeat(2000)));
   }
 
-  const result = checkContextWindow(messages, MAX_INPUT, 4);
+  const usage = measureContextUsage(messages, MAX_INPUT, 4);
 
-  // ~81,000 characters is roughly 20,000 tokens, which must exceed the
-  // 12,288-token budget (16,384 input minus the 4,096 response reserve).
-  assert.ok(
-    result.estimatedTokens > 1000,
-    `expected a realistic estimate, got ${result.estimatedTokens}`
-  );
-  assert.equal(result.truncated, true);
+  assert.ok(usage.estimatedTokens > 1000, `expected a realistic estimate, got ${usage.estimatedTokens}`);
+  assert.equal(usage.fits, false);
+  assert.ok(usage.usagePercent > 100);
 });
 
-test('truncation keeps the system message and the newest turn', () => {
-  const messages = [message(SYSTEM, 'system prompt')];
-  for (let i = 0; i < 30; i++) {
-    messages.push(message(i % 2 === 0 ? USER : ASSISTANT, `turn ${i} `.repeat(500)));
-  }
+test('tool results count toward the budget', () => {
+  // Regression: tool results were invisible to provideTokenCount / the guard,
+  // so a tool-heavy agent conversation looked nearly empty.
+  const messages = [
+    message(SYSTEM, 'system'),
+    {
+      role: USER,
+      content: [
+        new LanguageModelToolResultPart('call-1', [
+          new LanguageModelTextPart('x'.repeat(60_000)),
+        ]),
+      ],
+    },
+  ];
 
-  const result = checkContextWindow(messages, MAX_INPUT, 4);
+  const usage = measureContextUsage(messages, MAX_INPUT, 4);
 
-  assert.equal(result.truncated, true);
-  assert.ok(result.messages.length < messages.length);
-  assert.equal(result.messages[0].content[0].value, 'system prompt');
-  assert.equal(
-    result.messages[result.messages.length - 1].content[0].value,
-    messages[messages.length - 1].content[0].value
-  );
-  assert.match(result.notice, /Dropped \d+ earlier messages/);
+  assert.ok(usage.estimatedTokens >= 15_000, `got ${usage.estimatedTokens}`);
+  assert.equal(usage.fits, false);
 });
 
-test('warns when context is close to full but not over', () => {
-  // 16k input minus the 4096 reserve leaves 12,288 tokens ≈ 49,152 characters.
-  const messages = [message(SYSTEM, 's'), message(USER, 'u'.repeat(47_000))];
-  const result = checkContextWindow(messages, MAX_INPUT, 4);
+test('tool definitions sent outside the message list count via extraChars', () => {
+  const messages = [message(USER, 'u'.repeat(40_000))];
+  const withoutTools = measureContextUsage(messages, MAX_INPUT, 4);
+  const withTools = measureContextUsage(messages, MAX_INPUT, 4, { extraChars: 20_000 });
 
-  assert.equal(result.truncated, false);
-  assert.ok(result.usagePercent > 90);
-  assert.match(result.notice, /% full/);
+  assert.equal(withoutTools.fits, true);
+  assert.equal(withTools.fits, false);
+  assert.equal(withTools.estimatedTokens - withoutTools.estimatedTokens, 5000);
+});
+
+test('overflow error carries usage and a helpful message', () => {
+  const usage = measureContextUsage([message(USER, 'u'.repeat(100_000))], MAX_INPUT, 4);
+  const error = new ContextOverflowError('Qwen3.8 27B', usage);
+
+  assert.equal(error.name, 'ContextOverflowError');
+  assert.equal(error.usage, usage);
+  assert.match(error.message, /Qwen3\.8 27B/);
+  assert.match(error.message, /Compact Conversation/);
 });

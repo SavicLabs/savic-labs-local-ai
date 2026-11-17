@@ -60,8 +60,10 @@ conservative default is used.
 - **Tool calling** for agent mode.
 - **Vision proxy**: images are described by a vision-capable Copilot model before being
   sent to a text-only local model.
-- **Context protection**: prompts are estimated and truncated before they exceed the
-  model's reported context window.
+- **Context protection**: token usage is reported for every content part (text, tool calls,
+  tool results, images, thinking), so Copilot Chat compacts the conversation before the
+  model's context window fills. A last-resort guard fails with a clear error instead of
+  silently dropping history.
 - **Streaming** with stall detection, timeouts, and bounded retries on transient failures.
 
 ## Configuration

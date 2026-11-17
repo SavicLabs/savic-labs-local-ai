@@ -135,6 +135,16 @@ function createVscode(initialSettings = {}) {
         this.content = content;
       }
     },
+    LanguageModelThinkingPart: class {
+      constructor(value) {
+        this.value = value;
+      }
+    },
+    LanguageModelPromptTsxPart: class {
+      constructor(value) {
+        this.value = value;
+      }
+    },
     LanguageModelChatMessageRole: { User: 1, Assistant: 2, System: 3 },
     lm: {
       selectChatModels: async () => [],

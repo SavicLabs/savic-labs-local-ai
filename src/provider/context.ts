@@ -1,205 +1,79 @@
 /**
- * Context Window Manager — prevents context-overflow crashes.
+ * Context Window Guard.
  *
- * Responsibilities:
- * 1. Estimate total prompt tokens before sending (chars-per-token ratio)
- * 2. Detect when context exceeds model's maxInputTokens
- * 3. Intelligent truncation: preserves system prompt, tool chains, recent messages
- * 4. Track running context usage across conversation turns
- * 5. Warn user at 75% and 90% thresholds
+ * The chat host owns conversation compaction: it sizes prompts through
+ * `provideTokenCount` and summarizes the history when the window fills. This
+ * module is only a last-resort preflight check, so an oversized prompt fails
+ * with a clear error instead of being forwarded to the model server.
+ *
+ * It deliberately does NOT rewrite history. Dropping messages here would send
+ * the host a different conversation than the one it rendered and sized, and
+ * splitting assistant tool calls from their results produces invalid prompts.
  */
 import * as vscode from 'vscode';
-import { estimateTokensFromChars } from './tokens';
+import { estimateTokenCount } from './tokens';
 
-export interface ContextCheckResult {
-  /** Whether truncation was needed. */
-  truncated: boolean;
-  /** The (possibly truncated) messages to send. */
-  messages: vscode.LanguageModelChatMessage[];
-  /** Notice to show the user about what happened. */
-  notice?: string;
-  /** Estimated prompt tokens being sent. */
+export interface ContextUsage {
+  /** Estimated prompt tokens, including extra content (e.g. tool definitions). */
   estimatedTokens: number;
-  /** Model's max context window. */
+  /** Budget the prompt must fit into (context window minus response reserve). */
   maxContextTokens: number;
-  /** Usage percentage (0-100). */
+  /** The model's full context window. */
+  contextWindowTokens: number;
+  /** 0-100: estimatedTokens / maxContextTokens. */
   usagePercent: number;
+  /** Whether the prompt fits within the budget. */
+  fits: boolean;
+}
+
+export interface ContextUsageOptions {
+  /** Reserve this many tokens for the response (default 4096). */
+  reserveTokens?: number;
+  /** Characters sent outside `messages` (tool definitions, etc.). */
+  extraChars?: number;
 }
 
 /**
- * Check if messages fit within the model's context window.
- * If not, intelligently truncate while preserving critical messages.
+ * Measure a prompt against the model's context window.
  */
-export function checkContextWindow(
-  messages: vscode.LanguageModelChatMessage[],
-  maxInputTokens: number,
+export function measureContextUsage(
+  messages: readonly vscode.LanguageModelChatMessage[],
+  contextWindowTokens: number,
   charsPerToken: number,
-  /** Reserve this many tokens for the response and tool calls (default 4096). */
-  reserveTokens: number = 4096
-): ContextCheckResult {
-  const effectiveMax = maxInputTokens - reserveTokens;
+  options: ContextUsageOptions = {}
+): ContextUsage {
+  const reserveTokens = options.reserveTokens ?? 4096;
+  const maxContextTokens = Math.max(1, contextWindowTokens - reserveTokens);
 
-  // Estimate total tokens
-  let totalChars = 0;
-  for (const msg of messages) {
-    totalChars += getMessageChars(msg);
-  }
-  const estimatedTokens = estimateTokensFromChars(totalChars, charsPerToken);
-  const usagePercent = Math.round((estimatedTokens / effectiveMax) * 100);
-
-  // If we're under the limit, no truncation needed
-  if (estimatedTokens <= effectiveMax) {
-    // Still warn at high usage
-    let notice: string | undefined;
-    if (usagePercent > 90) {
-      notice = `⚠️ Context ${usagePercent}% full (${estimatedTokens}/${effectiveMax} tokens). Consider starting a new conversation.`;
-    } else if (usagePercent > 75) {
-      notice = `📊 Context ${usagePercent}% full.`;
-    }
-    return {
-      truncated: false,
-      messages,
-      notice,
-      estimatedTokens,
-      maxContextTokens: maxInputTokens,
-      usagePercent,
-    };
+  let estimatedTokens = 0;
+  for (const message of messages) {
+    estimatedTokens += estimateTokenCount(message, charsPerToken);
   }
 
-  // Context exceeded — truncate
-  const truncated = truncateMessages(messages, effectiveMax, charsPerToken);
+  if (options.extraChars && options.extraChars > 0) {
+    estimatedTokens += Math.max(1, Math.ceil(options.extraChars / charsPerToken));
+  }
 
   return {
-    truncated: true,
-    messages: truncated.messages,
-    notice: `⚠️ Context window exceeded. Dropped ${truncated.droppedCount} earlier messages to fit ${truncated.estimatedTokens}/${effectiveMax} tokens.`,
-    estimatedTokens: truncated.estimatedTokens,
-    maxContextTokens: maxInputTokens,
-    usagePercent: Math.round((truncated.estimatedTokens / effectiveMax) * 100),
+    estimatedTokens,
+    maxContextTokens,
+    contextWindowTokens,
+    usagePercent: Math.round((estimatedTokens / maxContextTokens) * 100),
+    fits: estimatedTokens <= maxContextTokens,
   };
 }
 
-interface TruncationResult {
-  messages: vscode.LanguageModelChatMessage[];
-  droppedCount: number;
-  estimatedTokens: number;
-}
+/** Thrown when a prompt cannot fit the model's context window. */
+export class ContextOverflowError extends Error {
+  readonly usage: ContextUsage;
 
-/**
- * Intelligently truncate messages to fit within the token budget.
- *
- * Strategy:
- * 1. Always keep the first message (system prompt)
- * 2. Keep the last N message pairs (user + assistant + tool results)
- * 3. Preserve tool call chains (don't split tool call from its result)
- * 4. Drop oldest messages first
- */
-function truncateMessages(
-  messages: vscode.LanguageModelChatMessage[],
-  maxTokens: number,
-  charsPerToken: number
-): TruncationResult {
-  if (messages.length <= 2) {
-    // Can't truncate further — return as-is with a note
-    return {
-      messages,
-      droppedCount: 0,
-      estimatedTokens: estimateTokensFromChars(
-        messages.reduce((sum, m) => sum + getMessageChars(m), 0),
-        charsPerToken
-      ),
-    };
-  }
-
-  // Everything below counts characters, so convert the token budget once.
-  const maxChars = maxTokens * charsPerToken;
-
-  // Always keep the first message (system prompt / initial context)
-  const systemMsg = messages[0];
-  let systemChars = getMessageChars(systemMsg);
-
-  // Walk backwards from the end, keeping messages until we hit the budget
-  const kept: vscode.LanguageModelChatMessage[] = [];
-  let keptChars = 0;
-  let pendingToolResults: vscode.LanguageModelChatMessage[] = [];
-
-  for (let i = messages.length - 1; i >= 1; i--) {
-    const msg = messages[i];
-
-    // Tool result messages must stay with their preceding assistant tool call
-    if (isToolResultMessage(msg)) {
-      pendingToolResults.push(msg);
-      continue;
-    }
-
-    const msgChars = getMessageChars(msg);
-    const pendingChars = pendingToolResults.reduce(
-      (sum, m) => sum + getMessageChars(m),
-      0
+  constructor(modelName: string, usage: ContextUsage) {
+    super(
+      `Conversation exceeds the context window of '${modelName}' ` +
+      `(estimated ${usage.estimatedTokens}/${usage.maxContextTokens} tokens). ` +
+      'Start a new chat or run "Compact Conversation" to continue.'
     );
-
-    if (systemChars + keptChars + msgChars + pendingChars > maxChars) {
-      // Can't fit this message — stop here
-      break;
-    }
-
-    // Add the message and any pending tool results
-    kept.unshift(msg);
-    keptChars += msgChars;
-
-    for (const tr of pendingToolResults.reverse()) {
-      kept.push(tr);
-      keptChars += getMessageChars(tr);
-    }
-    pendingToolResults = [];
+    this.name = 'ContextOverflowError';
+    this.usage = usage;
   }
-
-  // Build final result: system message + kept messages
-  const result = [systemMsg, ...kept];
-  const droppedCount = messages.length - result.length;
-
-  return {
-    messages: result,
-    droppedCount,
-    estimatedTokens: estimateTokensFromChars(systemChars + keptChars, charsPerToken),
-  };
-}
-
-/**
- * Get the total character count of a message's content.
- */
-function getMessageChars(msg: vscode.LanguageModelChatMessage): number {
-  let chars = 0;
-  for (const part of msg.content) {
-    if (part instanceof vscode.LanguageModelTextPart) {
-      chars += part.value.length;
-    } else if (part instanceof vscode.LanguageModelToolCallPart) {
-      chars += part.name.length + JSON.stringify(part.input).length;
-    } else if (part instanceof vscode.LanguageModelToolResultPart) {
-      for (const item of part.content) {
-        if (item instanceof vscode.LanguageModelTextPart) {
-          chars += item.value.length;
-        }
-      }
-    } else if (part instanceof vscode.LanguageModelDataPart) {
-      chars += part.data.byteLength; // Rough estimate for binary data
-    } else {
-      // LanguageModelThinkingPart (proposed API) — duck typing
-      // Must be in else branch to avoid double-counting TextPart.value
-      const thinkingPart = part as { value?: string | string[] };
-      if (thinkingPart.value !== undefined) {
-        const v = thinkingPart.value;
-        chars += Array.isArray(v) ? v.join('').length : String(v).length;
-      }
-    }
-  }
-  return chars;
-}
-
-/**
- * Check if a message is a tool result (needs to stay with its preceding tool call).
- */
-function isToolResultMessage(msg: vscode.LanguageModelChatMessage): boolean {
-  return msg.role === vscode.LanguageModelChatMessageRole.User &&
-    Array.from(msg.content).some((p) => p instanceof vscode.LanguageModelToolResultPart);
 }

@@ -5,6 +5,35 @@ All notable changes to the SavicLabs Local AI extension will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.12] — 2026-11-17
+
+### Fixed — Context compaction
+- **Conversations never compacted in agent mode** — `provideTokenCount` counted only
+  `LanguageModelTextPart`, so tool calls, tool results, images, thinking and prompt-tsx
+  content were reported as **zero tokens**. Copilot Chat sizes prompts and decides when to
+  compact through this method, so a tool-heavy 200K-token session looked nearly empty and
+  its ~80% compaction threshold was never reached. Token counting now walks every content
+  part recursively, including nested tool-result content, and never reports zero for a
+  non-empty message.
+- **Removed history truncation** — `checkContextWindow` dropped older messages from the
+  middle of the prompt. Besides being lossy, it reordered tool results away from their
+  assistant tool calls, producing invalid `assistant.tool_calls` → `tool` sequences. The
+  context guard is now a non-destructive preflight: if a prompt still exceeds the model's
+  window it fails with a clear `ContextOverflowError` instead of rewriting the conversation.
+  Copilot Chat's own summarization handles long sessions.
+- **Context notices no longer pollute the response** — the "context window exceeded" text
+  was emitted as assistant content on every turn, which fed the conversation it warned
+  about. It is now logged instead.
+- **Tool definitions are included in prompt accounting** — up to 128 tool schemas are sent
+  with every request but lived outside the message list, so both the context guard and the
+  chars-per-token calibration under-counted the prompt.
+
+### Changed
+- `measureContextUsage()` replaces `checkContextWindow()`; `ContextOverflowError` carries
+  the estimated usage.
+- Tests now cover tool calls, tool results, nested prompt-tsx, thinking, image data parts,
+  replay markers, and tool-definition accounting.
+
 ## [0.10.11] — 2026-11-13
 
 ### Fixed

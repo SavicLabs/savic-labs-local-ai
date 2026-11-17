@@ -12,7 +12,7 @@ import {
   getRequestTimeoutMs,
 } from '../config';
 import { getApiKeyForEndpoint } from '../secrets';
-import { convertMessages, convertTools, countMessageChars } from './convert';
+import { convertMessages, convertTools, countMessageChars, countToolChars } from './convert';
 import { getConfiguredThinkingEffort } from './models';
 import { shouldForceThinkingNone, formatRequestLogLine, classifyApiRequest, type RequestKind } from './routing/classifier';
 import { resolveImageMessages } from './vision/resolve';
@@ -95,8 +95,9 @@ export async function prepareChatRequest(input: PrepareRequestInput): Promise<Pr
   // Convert tools (handle readonly array from VS Code API)
   const tools = convertTools(options.tools ? [...options.tools] : undefined);
 
-  // Count chars for adaptive token ratio
-  const totalRequestChars = countMessageChars(convertedMessages);
+  // Count chars for adaptive token ratio (messages + tool definitions, which
+  // are sent with every request but live outside the message list)
+  const totalRequestChars = countMessageChars(convertedMessages) + countToolChars(options.tools);
 
   // Build base request
   const baseRequest: ChatCompletionRequest = {

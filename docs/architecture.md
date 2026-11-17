@@ -26,7 +26,7 @@ src/
     ├── index.ts          LanguageModelChatProvider implementation
     ├── models.ts         /v1/models discovery and picker metadata
     ├── request.ts        Request assembly, routing, model-load waiting
-    ├── context.ts        Context-window estimation and truncation
+    ├── context.ts        Context-window estimation and overflow guard
     ├── stream.ts         Streaming into VS Code response parts
     ├── convert.ts        VS Code messages → OpenAI schema
     ├── tokens.ts         Token estimation and calibration

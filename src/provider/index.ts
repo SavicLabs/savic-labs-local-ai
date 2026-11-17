@@ -13,7 +13,8 @@ import { fetchAllModels, toChatInfo, toModelPickerId } from './models';
 import { prepareChatRequest, waitForModelLoaded, clearRequestCaches } from './request';
 import { streamChatCompletion } from './stream';
 import { estimateTokenCount } from './tokens';
-import { checkContextWindow } from './context';
+import { measureContextUsage, ContextOverflowError } from './context';
+import { countToolChars } from './convert';
 import { dumpProviderInput } from './debug/dump';
 import { classifyProviderRequest } from './routing/classifier';
 import { VisionService } from './vision/service';
@@ -208,23 +209,36 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
       );
     }
 
-    // Context window check — prevent overflow crashes before sending
+    // Context guard — last-resort preflight only. The chat host compacts the
+    // conversation based on `provideTokenCount`; we fail fast only if a prompt
+    // is still larger than the model server can accept. History is never
+    // rewritten here: dropping messages would send the host a different
+    // conversation than the one it rendered and sized.
     const modelConfig = (requestOptions as Record<string, unknown>).modelOptions || (requestOptions as Record<string, unknown>).modelConfiguration || {};
     const perModelMaxContext = parseInt(String((modelConfig as { maxContextTokens?: string | number }).maxContextTokens ?? '0'), 10) || 0;
     const effectiveMaxContext = perModelMaxContext || modelInfo.maxInputTokens;
-    
-    const contextCheck = checkContextWindow(
+
+    const contextUsage = measureContextUsage(
       mutableMessages,
       effectiveMaxContext,
-      this.charsPerToken
+      this.charsPerToken,
+      { extraChars: countToolChars(requestOptions.tools) }
     );
 
-    if (contextCheck.notice) {
-      // Report context notice as first response part
-      extendedProgress.report(new vscode.LanguageModelTextPart(`> ${contextCheck.notice}\n\n`));
+    if (!contextUsage.fits) {
+      logger.warn(
+        `[context] Prompt exceeds ${modelInfo.name}: ` +
+        `${contextUsage.estimatedTokens}/${contextUsage.maxContextTokens} tokens`
+      );
+      throw new ContextOverflowError(modelInfo.name, contextUsage);
     }
 
-    const contextSafeMessages = contextCheck.messages;
+    if (contextUsage.usagePercent >= 90) {
+      logger.warn(
+        `[context] Prompt at ${contextUsage.usagePercent}% of ${modelInfo.name} ` +
+        `(${contextUsage.estimatedTokens}/${contextUsage.maxContextTokens} tokens)`
+      );
+    }
 
     // Classify request for logging
     const requestKind = classifyProviderRequest({
@@ -260,7 +274,7 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
 
       const prepared = await prepareChatRequest({
         modelInfo,
-        messages: contextSafeMessages,
+        messages: mutableMessages,
         options: requestOptions,
         token,
         getVisionDescriber: () => this.visionService.get(),
@@ -292,17 +306,6 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
     text: string | vscode.LanguageModelChatMessage,
     _token: vscode.CancellationToken
   ): Promise<number> {
-    const value = typeof text === 'string' ? text : getMessageText(text);
-    return estimateTokenCount(value, this.charsPerToken);
+    return estimateTokenCount(text, this.charsPerToken);
   }
-}
-
-function getMessageText(message: vscode.LanguageModelChatMessage): string {
-  let text = '';
-  for (const part of message.content) {
-    if (part instanceof vscode.LanguageModelTextPart) {
-      text += part.value;
-    }
-  }
-  return text;
 }

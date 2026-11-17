@@ -161,6 +161,31 @@ export function countMessageChars(messages: OpenAiMessage[]): number {
   return total;
 }
 
+/**
+ * Count characters in tool definitions. Tool schemas are sent with every
+ * request but live outside the message list, so they must be added to the
+ * prompt budget and to chars-per-token calibration.
+ */
+export function countToolChars(
+  tools: readonly vscode.LanguageModelChatTool[] | undefined
+): number {
+  if (!tools || tools.length === 0) {
+    return 0;
+  }
+
+  let total = 0;
+  for (const tool of tools) {
+    total += tool.name.length;
+    total += tool.description?.length ?? 0;
+    try {
+      total += JSON.stringify(tool.inputSchema ?? {}).length;
+    } catch {
+      total += 2; // non-serializable schema — charge a minimal placeholder
+    }
+  }
+  return total;
+}
+
 // ---- Internal helpers ----
 
 interface ToolResultItem {
