@@ -216,7 +216,12 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
     // conversation than the one it rendered and sized.
     const modelConfig = (requestOptions as Record<string, unknown>).modelOptions || (requestOptions as Record<string, unknown>).modelConfiguration || {};
     const perModelMaxContext = parseInt(String((modelConfig as { maxContextTokens?: string | number }).maxContextTokens ?? '0'), 10) || 0;
-    const effectiveMaxContext = perModelMaxContext || modelInfo.maxInputTokens;
+    // `maxInputTokens` already excludes the response reserve; a per-model
+    // override can only lower it, never exceed the server-safe budget.
+    const effectiveMaxContext = Math.min(
+      perModelMaxContext || modelInfo.maxInputTokens,
+      modelInfo.maxInputTokens
+    );
 
     const contextUsage = measureContextUsage(
       mutableMessages,
@@ -228,7 +233,7 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
     if (!contextUsage.fits) {
       logger.warn(
         `[context] Prompt exceeds ${modelInfo.name}: ` +
-        `${contextUsage.estimatedTokens}/${contextUsage.maxContextTokens} tokens`
+        `${contextUsage.estimatedTokens}/${contextUsage.maxInputTokens} tokens`
       );
       throw new ContextOverflowError(modelInfo.name, contextUsage);
     }
@@ -236,7 +241,7 @@ export class SavicLabsChatProvider implements vscode.LanguageModelChatProvider {
     if (contextUsage.usagePercent >= 90) {
       logger.warn(
         `[context] Prompt at ${contextUsage.usagePercent}% of ${modelInfo.name} ` +
-        `(${contextUsage.estimatedTokens}/${contextUsage.maxContextTokens} tokens)`
+        `(${contextUsage.estimatedTokens}/${contextUsage.maxInputTokens} tokens)`
       );
     }
 

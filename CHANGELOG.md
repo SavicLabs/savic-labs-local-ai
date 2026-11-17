@@ -5,6 +5,22 @@ All notable changes to the SavicLabs Local AI extension will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.13] — 2026-11-17
+
+### Fixed — Context window accounting
+- **The response now gets a reserved slice of the context window** — local models were
+  advertised with `maxInputTokens` equal to the server's entire `--ctx-size` (e.g. 262,144)
+  plus a separate `maxOutputTokens`, so input + output exceeded the window and the host
+  believed it could send 100% of it as prompt. `maxInputTokens` is now
+  `ctx-size - 8,192` (capped at 25% for small models); those 8,192 tokens are reserved for
+  generation, matching the reservation the chat host assumes for extension-contributed
+  models.
+- **Picker options and labels follow the input budget** — the "Max Context" list now tops out
+  at the usable input budget instead of the full window, and the description shows the server
+  context together with the response reserve.
+- **The guard receives a pre-reserved budget** — `measureContextUsage()` takes the input
+  budget directly, so the response reserve is applied once rather than twice.
+
 ## [0.10.12] — 2026-11-17
 
 ### Fixed — Context compaction

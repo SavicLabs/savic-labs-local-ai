@@ -15,17 +15,17 @@ const USER = LanguageModelChatMessageRole.User;
 
 const message = (role, text) => ({ role, content: [new LanguageModelTextPart(text)] });
 
-// measureContextUsage reserves 4096 tokens for the response by default.
+// measureContextUsage takes the usable input budget directly (the model's
+// context window minus the response reserve).
 const MAX_INPUT = 16_384;
-const BUDGET = MAX_INPUT - 4096;
+const BUDGET = MAX_INPUT;
 
 test('small conversations fit', () => {
   const messages = [message(SYSTEM, 'You are helpful.'), message(USER, 'Hi')];
   const usage = measureContextUsage(messages, MAX_INPUT, 4);
 
   assert.equal(usage.fits, true);
-  assert.equal(usage.contextWindowTokens, MAX_INPUT);
-  assert.equal(usage.maxContextTokens, BUDGET);
+  assert.equal(usage.maxInputTokens, BUDGET);
   assert.ok(usage.estimatedTokens > 0);
   assert.ok(usage.usagePercent < 100);
 });
@@ -55,7 +55,7 @@ test('tool results count toward the budget', () => {
       role: USER,
       content: [
         new LanguageModelToolResultPart('call-1', [
-          new LanguageModelTextPart('x'.repeat(60_000)),
+          new LanguageModelTextPart('x'.repeat(100_000)),
         ]),
       ],
     },
@@ -70,11 +70,11 @@ test('tool results count toward the budget', () => {
 test('tool definitions sent outside the message list count via extraChars', () => {
   const messages = [message(USER, 'u'.repeat(40_000))];
   const withoutTools = measureContextUsage(messages, MAX_INPUT, 4);
-  const withTools = measureContextUsage(messages, MAX_INPUT, 4, { extraChars: 20_000 });
+  const withTools = measureContextUsage(messages, MAX_INPUT, 4, { extraChars: 40_000 });
 
   assert.equal(withoutTools.fits, true);
   assert.equal(withTools.fits, false);
-  assert.equal(withTools.estimatedTokens - withoutTools.estimatedTokens, 5000);
+  assert.equal(withTools.estimatedTokens - withoutTools.estimatedTokens, 10_000);
 });
 
 test('overflow error carries usage and a helpful message', () => {

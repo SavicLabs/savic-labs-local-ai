@@ -16,34 +16,29 @@ import { estimateTokenCount } from './tokens';
 export interface ContextUsage {
   /** Estimated prompt tokens, including extra content (e.g. tool definitions). */
   estimatedTokens: number;
-  /** Budget the prompt must fit into (context window minus response reserve). */
-  maxContextTokens: number;
-  /** The model's full context window. */
-  contextWindowTokens: number;
-  /** 0-100: estimatedTokens / maxContextTokens. */
+  /** Usable input budget (context window minus the response reserve). */
+  maxInputTokens: number;
+  /** 0-100: estimatedTokens / maxInputTokens. */
   usagePercent: number;
   /** Whether the prompt fits within the budget. */
   fits: boolean;
 }
 
 export interface ContextUsageOptions {
-  /** Reserve this many tokens for the response (default 4096). */
-  reserveTokens?: number;
   /** Characters sent outside `messages` (tool definitions, etc.). */
   extraChars?: number;
 }
 
 /**
- * Measure a prompt against the model's context window.
+ * Measure a prompt against a model's usable input budget.
  */
 export function measureContextUsage(
   messages: readonly vscode.LanguageModelChatMessage[],
-  contextWindowTokens: number,
+  maxInputTokens: number,
   charsPerToken: number,
   options: ContextUsageOptions = {}
 ): ContextUsage {
-  const reserveTokens = options.reserveTokens ?? 4096;
-  const maxContextTokens = Math.max(1, contextWindowTokens - reserveTokens);
+  const budget = Math.max(1, maxInputTokens);
 
   let estimatedTokens = 0;
   for (const message of messages) {
@@ -56,10 +51,9 @@ export function measureContextUsage(
 
   return {
     estimatedTokens,
-    maxContextTokens,
-    contextWindowTokens,
-    usagePercent: Math.round((estimatedTokens / maxContextTokens) * 100),
-    fits: estimatedTokens <= maxContextTokens,
+    maxInputTokens: budget,
+    usagePercent: Math.round((estimatedTokens / budget) * 100),
+    fits: estimatedTokens <= budget,
   };
 }
 
@@ -70,7 +64,7 @@ export class ContextOverflowError extends Error {
   constructor(modelName: string, usage: ContextUsage) {
     super(
       `Conversation exceeds the context window of '${modelName}' ` +
-      `(estimated ${usage.estimatedTokens}/${usage.maxContextTokens} tokens). ` +
+      `(estimated ${usage.estimatedTokens}/${usage.maxInputTokens} tokens). ` +
       'Start a new chat or run "Compact Conversation" to continue.'
     );
     this.name = 'ContextOverflowError';

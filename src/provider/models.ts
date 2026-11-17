@@ -5,7 +5,7 @@
  * models, their capabilities, and context sizes. No hardcoded model lists.
  */
 import * as vscode from 'vscode';
-import { THINKING_SPEC_TYPES, isThinkingModelId, DEFAULT_MAX_OUTPUT_TOKENS, ZAI_MODELS, isZaiCodingPlan } from '../consts';
+import { THINKING_SPEC_TYPES, isThinkingModelId, ZAI_MODELS, isZaiCodingPlan } from '../consts';
 import { getApiKeyForEndpoint } from '../secrets';
 import { logger } from '../logger';
 import { t } from '../i18n';
@@ -42,6 +42,8 @@ export interface DiscoveredModel {
   detail: string;
   maxInputTokens: number;
   maxOutputTokens: number;
+  /** Full context window the server hosts the model at (input + response reserve). */
+  contextWindowTokens: number;
   hasThinking: boolean;
   hasVision: boolean;
   isLoaded: boolean;
@@ -178,6 +180,7 @@ function getZaiModels(endpoint: string): DiscoveredModel[] {
       detail,
       maxInputTokens: ctxSize,
       maxOutputTokens: m.maxOutput,
+      contextWindowTokens: ctxSize,
       hasThinking: m.hasThinking,
       hasVision: false,
       isLoaded: true, // Cloud models are always "loaded"
@@ -221,6 +224,17 @@ const CLOUD_MODEL_MAX_OUTPUT = 131_072;
  * spawn args nor GGUF metadata. Only used as a fallback — never as a cap.
  */
 const LOCAL_MODEL_FALLBACK_CONTEXT = 65_536;
+
+/**
+ * Tokens held back from the input budget for the model's response.
+ *
+ * A local llama.cpp server shares ONE context window (`--ctx-size`) between
+ * prompt and generation. Advertising the whole window as `maxInputTokens`
+ * would tell the host it can send 100% of it as prompt, leaving no room to
+ * generate. 8,192 matches the reservation the chat host assumes for
+ * extension-contributed models.
+ */
+const LOCAL_MODEL_RESPONSE_RESERVE = 8_192;
 
 /**
  * Parse a single model entry from the API.
@@ -309,6 +323,14 @@ function parseModelEntry(entry: DiscoveredModelEntry, endpoint: string): Discove
     // Otherwise keep LOCAL_MODEL_FALLBACK_CONTEXT.
   }
 
+  // Local servers share one context window between prompt and generation, so
+  // the advertised input budget must leave room for the response. Cloud
+  // providers report their own limits; keep those as-is.
+  const maxOutputTokens = cloud
+    ? CLOUD_MODEL_MAX_OUTPUT
+    : Math.min(LOCAL_MODEL_RESPONSE_RESERVE, Math.max(1, Math.floor(ctxSize / 4)));
+  const maxInputTokens = cloud ? ctxSize : Math.max(1, ctxSize - maxOutputTokens);
+
   // Detect spec-type for thinking capability
   let specType = 'none';
   if (entry.status?.args) {
@@ -365,8 +387,9 @@ function parseModelEntry(entry: DiscoveredModelEntry, endpoint: string): Discove
     id,
     displayName,
     detail,
-    maxInputTokens: ctxSize,
-    maxOutputTokens: cloud ? CLOUD_MODEL_MAX_OUTPUT : DEFAULT_MAX_OUTPUT_TOKENS,
+    maxInputTokens,
+    maxOutputTokens,
+    contextWindowTokens: ctxSize,
     hasThinking,
     hasVision,
     isLoaded,
@@ -421,11 +444,15 @@ export function toChatInfo(model: DiscoveredModel): vscode.LanguageModelChatInfo
  * Includes max output tokens for all models, reasoning effort for thinking models.
  */
 function buildConfigurationSchema(model: DiscoveredModel): vscode.LanguageModelChatConfigurationSchema {
-  // Build context size options — always include 0 (server default) + common sizes
-  const serverCtx = model.maxInputTokens;
-  const isCloud = model.isCloud ?? (serverCtx >= 1_000_000); // cloud models use CLOUD_MODEL_MAX_CONTEXT
-  const serverCtxK = serverCtx >= 1024 ? Math.round(serverCtx / 1024) : serverCtx;
-  const ctxOptions = ['0']; // 0 = use full server context
+  // `maxInputTokens` is the usable prompt budget; the full window also holds
+  // the response reserve.
+  const inputBudget = model.maxInputTokens;
+  const windowTokens = model.contextWindowTokens ?? inputBudget;
+  const isCloud = model.isCloud ?? (windowTokens >= 1_000_000); // cloud models use CLOUD_MODEL_MAX_CONTEXT
+  const toK = (n: number) => (n >= 1024 ? Math.round(n / 1024) : n);
+  const inputBudgetK = toK(inputBudget);
+  const windowK = toK(windowTokens);
+  const ctxOptions = ['0']; // 0 = use the full input budget
   if (isCloud) {
     // Cloud models — show unlimited + large standard options
     for (const k of [32, 64, 128, 256, 512, 1024]) {
@@ -434,15 +461,15 @@ function buildConfigurationSchema(model: DiscoveredModel): vscode.LanguageModelC
     ctxOptions.push('0-unlimited'); // explicit unlimited marker
   } else {
     for (const k of [4, 8, 16, 32, 64, 128]) {
-      if (k * 1024 < serverCtx) ctxOptions.push(String(k * 1024));
+      if (k * 1024 < inputBudget) ctxOptions.push(String(k * 1024));
     }
-    ctxOptions.push(String(serverCtx)); // full server context as explicit option
+    ctxOptions.push(String(inputBudget)); // full input budget as explicit option
   }
 
   const ctxLabels = ctxOptions.map(v => {
     if (v === '0-unlimited') return 'Unlimited';
     const n = parseInt(v, 10);
-    if (n === 0) return isCloud ? 'Unlimited (cloud)' : `Server default (${serverCtxK}K)`;
+    if (n === 0) return isCloud ? 'Unlimited (cloud)' : `Server default (${inputBudgetK}K)`;
     if (n >= 1024) return `${Math.round(n / 1024)}K`;
     return String(n);
   });
@@ -451,7 +478,9 @@ function buildConfigurationSchema(model: DiscoveredModel): vscode.LanguageModelC
     maxContextTokens: {
       type: 'string',
       title: 'Max Context',
-      description: `Limits input tokens sent to the model. Lower = faster prompt processing. Server context: ${serverCtxK}K.`,
+      description: isCloud
+        ? `Limits input tokens sent to the model. Lower = faster prompt processing. Server context: ${windowK}K.`
+        : `Limits input tokens sent to the model. Lower = faster prompt processing. Server context: ${windowK}K (${inputBudgetK}K input, ${toK(model.maxOutputTokens)}K reserved for the response).`,
       enum: ctxOptions,
       enumItemLabels: ctxLabels,
       default: '0',

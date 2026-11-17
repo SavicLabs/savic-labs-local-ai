@@ -14,6 +14,7 @@ function discovered(overrides = {}) {
     detail: 'llama.cpp · Q4_K_M',
     maxInputTokens: 32_768,
     maxOutputTokens: 4096,
+    contextWindowTokens: 36_864,
     hasThinking: true,
     hasVision: false,
     isLoaded: true,
@@ -49,6 +50,20 @@ test('chat info carries the picker ID and declared limits', () => {
   assert.equal(info.maxOutputTokens, 4096);
   assert.equal(info.capabilities.imageInput, false);
   assert.ok(info.configurationSchema, 'picker configuration should be provided');
+});
+
+test('picker context options leave room for the response', () => {
+  const info = toChatInfo(discovered({
+    maxInputTokens: 253_952,
+    maxOutputTokens: 8_192,
+    contextWindowTokens: 262_144,
+  }));
+  const ctx = info.configurationSchema.properties.maxContextTokens;
+
+  assert.ok(ctx.enum.includes('253952'), 'the input budget should be selectable');
+  assert.ok(!ctx.enum.includes('262144'), 'the full window must not be offered as input');
+  assert.match(ctx.description, /256K/);
+  assert.match(ctx.description, /reserved for the response/);
 });
 
 test('thinking capability is advertised for reasoning models', () => {
