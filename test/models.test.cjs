@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { createVscode, install } = require('./helpers/vscode.cjs');
 
 install(createVscode());
-const { toModelPickerId, toChatInfo } = require('../out/provider/models.js');
+const { toModelPickerId, toChatInfo, computeLocalResponseReserve } = require('../out/provider/models.js');
 
 function discovered(overrides = {}) {
   return {
@@ -64,6 +64,15 @@ test('picker context options leave room for the response', () => {
   assert.ok(!ctx.enum.includes('262144'), 'the full window must not be offered as input');
   assert.match(ctx.description, /256K/);
   assert.match(ctx.description, /reserved for the response/);
+});
+
+test('response reserve scales with the window and stays bounded', () => {
+  // 1/16 of the window, clamped to [8K, 32K] and <= 25% of the window.
+  assert.equal(computeLocalResponseReserve(262_144), 16_384);
+  assert.equal(computeLocalResponseReserve(1_048_576), 32_768);
+  assert.equal(computeLocalResponseReserve(131_072), 8_192);
+  assert.equal(computeLocalResponseReserve(32_768), 8_192);
+  assert.equal(computeLocalResponseReserve(4_096), 1_024);
 });
 
 test('thinking capability is advertised for reasoning models', () => {

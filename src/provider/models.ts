@@ -231,10 +231,26 @@ const LOCAL_MODEL_FALLBACK_CONTEXT = 65_536;
  * A local llama.cpp server shares ONE context window (`--ctx-size`) between
  * prompt and generation. Advertising the whole window as `maxInputTokens`
  * would tell the host it can send 100% of it as prompt, leaving no room to
- * generate. 8,192 matches the reservation the chat host assumes for
- * extension-contributed models.
+ * generate.
+ *
+ * The reserve scales with the window (1/16), clamped to [8K, 32K] and never
+ * more than 25% of the window. That gives 16K for a 256K model, 32K for a 1M
+ * model and 8K for 32K-131K models — enough for thinking chains and tool-call
+ * payloads without giving away large-context capacity.
  */
-const LOCAL_MODEL_RESPONSE_RESERVE = 8_192;
+const LOCAL_MODEL_RESPONSE_RESERVE_RATIO = 1 / 16;
+const LOCAL_MODEL_RESPONSE_RESERVE_MIN = 8_192;
+const LOCAL_MODEL_RESPONSE_RESERVE_MAX = 32_768;
+
+/** Compute how many tokens to reserve for the response of a local model. */
+export function computeLocalResponseReserve(contextWindowTokens: number): number {
+  const scaled = Math.round(contextWindowTokens * LOCAL_MODEL_RESPONSE_RESERVE_RATIO);
+  const bounded = Math.min(
+    Math.max(scaled, LOCAL_MODEL_RESPONSE_RESERVE_MIN),
+    LOCAL_MODEL_RESPONSE_RESERVE_MAX
+  );
+  return Math.max(1, Math.min(bounded, Math.floor(contextWindowTokens / 4)));
+}
 
 /**
  * Parse a single model entry from the API.
@@ -328,7 +344,7 @@ function parseModelEntry(entry: DiscoveredModelEntry, endpoint: string): Discove
   // providers report their own limits; keep those as-is.
   const maxOutputTokens = cloud
     ? CLOUD_MODEL_MAX_OUTPUT
-    : Math.min(LOCAL_MODEL_RESPONSE_RESERVE, Math.max(1, Math.floor(ctxSize / 4)));
+    : computeLocalResponseReserve(ctxSize);
   const maxInputTokens = cloud ? ctxSize : Math.max(1, ctxSize - maxOutputTokens);
 
   // Detect spec-type for thinking capability

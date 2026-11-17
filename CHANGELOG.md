@@ -5,6 +5,16 @@ All notable changes to the SavicLabs Local AI extension will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.14] — 2026-11-17
+
+### Changed — Response reserve
+- **The response reserve now scales with the context window** instead of a flat 8,192
+  tokens: 1/16 of `--ctx-size`, clamped to [8K, 32K] and never more than 25% of the window.
+  A 256K model now reserves 16,384 tokens (input budget 245,760); a 1M model reserves
+  32,768 (input 1,015,808); 131K and 32K models keep 8,192; a 4K model reserves 1,024.
+  This leaves room for thinking chains and large tool-call payloads without giving away
+  meaningful long-context capacity.
+
 ## [0.10.13] — 2026-11-17
 
 ### Fixed — Context window accounting
