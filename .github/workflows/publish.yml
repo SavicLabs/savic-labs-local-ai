@@ -42,7 +42,9 @@ jobs:
         run: npm ci
 
       - name: Publish to Visual Studio Marketplace
-        run: npx @vscode/vsce publish --oidc
+        # --skip-duplicate keeps re-runs safe: a rerun for Open VSX will not
+        # fail just because the Marketplace already has this version.
+        run: npx @vscode/vsce publish --oidc --skip-duplicate
 
       # Open VSX reaches VSCodium, Cursor, Gitpod and Theia — none of which can
       # install from the Microsoft Marketplace.
